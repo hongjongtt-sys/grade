@@ -454,62 +454,64 @@ function parseMeta(strings){
 }
 
 function parseRoster(wb){
+  // 나이스 일람표는 '한페이지출력' 여부에 따라 반들이 여러 블록(페이지)으로 나뉠 수 있다.
+  // → 모든 시트의 모든 '반/번호' 머리글 블록을 읽어서 합친다.
+  const isHead = v => typeof v === 'string' && v.includes('반') && v.includes('번호');
+  const stuMap = new Map(), stMap = new Map(), counts = {}, clsSet = new Set(), strs = [];
+  let blocks = 0, sheetUsed = null;
   for (const name of wb.SheetNames){
     const rows = sheetRows(wb.Sheets[name]);
-    let hr = -1, hc = -1;
-    outer: for (let r = 0; r < rows.length; r++){
-      const row = rows[r] || [];
-      for (let c = 0; c < row.length; c++){
-        const v = row[c];
-        if (typeof v === 'string' && v.includes('반') && v.includes('번호')){ hr = r; hc = c; break outer; }
-      }
-    }
-    if (hr < 0) continue;
-
-    // 머리글(표 위쪽 + 시트 전체 문자열 중 학년도/교과목 포함)
-    const strs = [];
+    const heads = [];
+    rows.forEach((row, r) => (row || []).forEach((v, c) => { if (isHead(v)) heads.push({r, c}); }));
+    if (!heads.length) continue;
     rows.forEach(row => (row || []).forEach(v => { if (typeof v === 'string' && /(학년도|교과목)/.test(v)) strs.push(v); }));
-    const meta = parseMeta(strs);
-
-    // 반 머리글
-    const head = rows[hr] || [];
-    const classes = [];  // {col, cls}
-    for (let c = hc + 1; c < head.length; c++){
-      const n = toNum(head[c]);
-      if (n == null || !Number.isInteger(n)) break;
-      classes.push({col:c, cls:n});
-    }
-    if (!classes.length) continue;
-
-    const students = [], statuses = [], counts = {}, warnings = [];
-    let ended = false, blank = 0;
-    for (let r = hr + 1; r < rows.length; r++){
-      const row = rows[r] || [];
-      const lab = row[hc];
-      const no = toNum(lab);
-      if (!ended && no != null && Number.isInteger(no)){
-        blank = 0;
-        for (const {col, cls} of classes){
-          const v = row[col];
-          const s = toNum(v);
-          if (s != null) students.push({cls, no, score:s});
-          else if (typeof v === 'string' && v.trim()) statuses.push({cls, no, text:v.trim()});
-        }
-        continue;
+    for (const {r:hr, c:hc} of heads){
+      // 반 머리글: 병합 셀로 생긴 빈칸은 건너뛰고, 숫자가 아닌 글자가 나오거나 빈칸이 4개 이어지면 끝
+      const head = rows[hr] || [];
+      const classes = [];
+      let gap = 0;
+      for (let c = hc + 1; c < head.length; c++){
+        const v = head[c];
+        if (v == null || String(v).trim() === ''){ if (++gap > 3) break; continue; }
+        if (isHead(v)) break;
+        const n = toNum(typeof v === 'string' ? v.replace(/반$/, '') : v);
+        if (n == null || !Number.isInteger(n)) break;
+        gap = 0; classes.push({col:c, cls:n});
       }
-      if (lab == null || String(lab).trim() === ''){ if (++blank > 5) break; continue; }
-      ended = true;
-      if (norm(lab).includes('응시')){
-        for (const {col, cls} of classes){
-          const t = row[col]; if (t == null) continue;
-          const n = parseInt(String(t).replace(/[^\d]/g, ''), 10);
-          if (!isNaN(n)) counts[cls] = n;
+      if (!classes.length) continue;
+      blocks++; sheetUsed = sheetUsed || name;
+      classes.forEach(x => clsSet.add(x.cls));
+      let ended = false, blank = 0;
+      for (let r = hr + 1; r < rows.length; r++){
+        const row = rows[r] || [];
+        if (row.some(isHead)) break;                       // 다음 블록 시작
+        const lab = row[hc];
+        const no = toNum(lab);
+        if (!ended && no != null && Number.isInteger(no)){
+          blank = 0;
+          for (const {col, cls} of classes){
+            const v = row[col], sc = toNum(v), k = cls + '-' + no;
+            if (sc != null){ stuMap.set(k, {cls, no, score:sc}); stMap.delete(k); }
+            else if (typeof v === 'string' && v.trim() && !stuMap.has(k)) stMap.set(k, {cls, no, text:v.trim()});
+          }
+          continue;
+        }
+        if (lab == null || String(lab).trim() === ''){ if (++blank > 5) break; continue; }
+        ended = true;
+        if (norm(lab).includes('응시')){
+          for (const {col, cls} of classes){
+            const t = row[col]; if (t == null) continue;
+            const n = parseInt(String(t).replace(/[^\d]/g, ''), 10);
+            if (!isNaN(n)) counts[cls] = n;
+          }
         }
       }
     }
-    return {sheet:name, meta, classes:classes.map(c => c.cls), students, statuses, counts, warnings};
   }
-  throw new Error("'반 / 번호' 머리글 셀을 찾지 못했습니다. 나이스 교과목별일람표(전체학급) 파일인지 확인해 주세요.");
+  if (!blocks) throw new Error("'반 / 번호' 머리글 셀을 찾지 못했습니다. 나이스 교과목별일람표조회-전체학급 파일인지 확인해 주세요.");
+  const students = [...stuMap.values()].sort((a, b) => a.cls - b.cls || a.no - b.no);
+  return {sheet:sheetUsed, blocks, meta:parseMeta(strs), classes:[...clsSet].sort((a, b) => a - b),
+          students, statuses:[...stMap.values()], counts, warnings:[]};
 }
 
 /* ============================================================
@@ -761,12 +763,14 @@ bindDrop('#dropRoster', '#fRoster', async files => {
     const w = [];
     const per = {}; R.students.forEach(s => per[s.cls] = (per[s.cls] || 0) + 1);
     const bad = R.classes.filter(c => R.counts[c] != null && R.counts[c] !== (per[c] || 0));
+    const miss = []; for (let c = 1; c < R.classes[R.classes.length - 1]; c++) if (!R.classes.includes(c)) miss.push(c);
+    if (miss.length) w.push(`<div class="msg err">⚠️ 일람표에서 ${miss.join(', ')}반을 찾지 못했습니다. 등급컷은 학년 전체로 계산해야 하니 '전체학급' 파일인지 확인해 주세요.</div>`);
     if (Object.keys(R.counts).length === 0) w.push(`<div class="msg warn">⚠️ '응시생수' 행을 찾지 못해 반별 인원 검증을 건너뛰었습니다.</div>`);
     else if (bad.length) w.push(`<div class="msg err">⚠️ 응시생수 불일치: ${bad.map(c => `${c}반(읽음 ${per[c] || 0}명 / 응시생수 ${R.counts[c]}명)`).join(', ')}</div>`);
     if (!m.grade && !$('#mGrade').value) w.push(`<div class="msg warn">⚠️ 머리글에서 학년을 읽지 못했습니다. '시험 정보'에 학년을 입력해야 학번이 만들어집니다.</div>`);
     if (!m.subject && !$('#mSubj').value) w.push(`<div class="msg warn">⚠️ 머리글에서 과목명을 읽지 못했습니다("XLS data" 형식일 수 있음). 과목명을 직접 입력하세요.</div>`);
     const st = R.statuses.length ? ` · 글자 셀 제외 ${R.statuses.length}명(${summarizeStatus(R.statuses)})` : '';
-    setLoadMsg('roster', `<div class="msg ok">일람표: ${R.classes.length}개 반 · 응시 ${R.students.length}명${st}${bad.length ? '' : (Object.keys(R.counts).length ? ' · 반별 응시생수 일치 ✓' : '')}</div>` + w.join(''));
+    setLoadMsg('roster', `<div class="msg ok">일람표: ${R.classes.length}개 반(${R.classes[0]}~${R.classes[R.classes.length - 1]}반${R.blocks > 1 ? `, ${R.blocks}개 블록` : ''}) · 응시 ${R.students.length}명${st}${bad.length ? '' : (Object.keys(R.counts).length ? ' · 반별 응시생수 일치 ✓' : '')}</div>` + w.join(''));
     renderMyCls();
     matchCutSubject();
     recompute();
