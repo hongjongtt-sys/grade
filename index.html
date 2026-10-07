@@ -116,6 +116,18 @@ footer{margin-top:26px;text-align:center;color:var(--tx2);font-size:13px;border-
 footer b{color:var(--green)}
 .hide{display:none!important}
 #printArea{display:none}
+/* 학생 확인 화면 */
+#viewer{position:fixed;inset:0;z-index:100;background:var(--bg);overflow:auto;display:none}
+#viewer.on{display:block}
+body.viewing{overflow:hidden}
+#viewer .vbar{position:sticky;top:0;z-index:2;display:flex;flex-wrap:wrap;gap:10px;align-items:end;padding:12px 16px;background:rgba(11,13,18,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+#viewer .vbar label.fld{flex:0 1 150px}
+#viewer .vbody{max-width:1180px;margin:0 auto;padding:18px 16px 40px;font-size:17px}
+#viewer .vbody .stat .v{font-size:22px!important}
+#viewer .vbody h2{font-size:22px}
+#viewer .vbody table{font-size:15.5px}
+#viewer .vhint{font-size:12.5px;color:var(--tx2);margin-left:auto;align-self:center}
+@media print{#viewer{display:none!important}}
 /* print */
 @media print{
   @page{size:A4;margin:12mm}
@@ -258,7 +270,7 @@ footer b{color:var(--green)}
   <section id="results" class="hide">
     <div class="tabs noprint">
       <button data-tab="all" class="on">전체 결과</button>
-      <button data-tab="one">개인 조회</button>
+      <button data-tab="one">학생 성적확인</button>
     </div>
 
     <div id="tabAll">
@@ -299,6 +311,7 @@ footer b{color:var(--green)}
           <datalist id="pList"></datalist>
           <button class="btn ghost" id="pPrev">◀</button>
           <button class="btn ghost" id="pNext">▶</button>
+          <button class="btn ghost" id="btnView">🖥 확인 화면</button>
           <button class="btn" id="btnPrintOne">🖨 개인 성적표 인쇄</button>
         </div>
         <p class="muted" style="margin:8px 0 0">반을 고르면 ◀ ▶가 그 반 안에서 번호 순으로 움직입니다. 키보드 ← → 로도 넘길 수 있습니다.</p>
@@ -310,7 +323,7 @@ footer b{color:var(--green)}
   <section id="semResults" class="hide">
     <div class="tabs noprint" id="semTabs">
       <button data-tab="sAll" class="on">학기말 결과</button>
-      <button data-tab="sOne">개인 조회</button>
+      <button data-tab="sOne">학생 성적확인</button>
     </div>
     <div id="sTabAll">
       <div class="card">
@@ -346,6 +359,7 @@ footer b{color:var(--green)}
           <datalist id="sPList"></datalist>
           <button class="btn ghost" id="sPPrev">◀</button>
           <button class="btn ghost" id="sPNext">▶</button>
+          <button class="btn ghost" id="sBtnView">🖥 확인 화면</button>
           <button class="btn" id="sBtnPrintOne">🖨 개인 성적표 인쇄</button>
         </div>
         <p class="muted" style="margin:8px 0 0">반을 고르면 ◀ ▶가 그 반 안에서 번호 순으로 움직입니다. 키보드 ← → 로도 넘길 수 있습니다.</p>
@@ -358,6 +372,17 @@ footer b{color:var(--green)}
     🔒 <b>업로드한 파일은 이 기기 밖으로 나가지 않으며 저장되지 않습니다.</b><br>
     <span class="muted">모든 계산은 이 브라우저 안에서만 이루어지고, 새로고침하면 데이터가 사라집니다.</span>
   </footer>
+</div>
+<div id="viewer" class="noprint" role="dialog" aria-label="학생 성적확인 화면">
+  <div class="vbar">
+    <label class="fld">반<select id="vCls"></select></label>
+    <label class="fld">학번<input type="text" id="vId" inputmode="numeric" autocomplete="off" placeholder="학번 입력"></label>
+    <button class="btn ghost" id="vPrev">◀</button>
+    <button class="btn ghost" id="vNext">▶</button>
+    <span class="vhint">← → 이동 · Esc 닫기</span>
+    <button class="btn" id="vClose">✕ 닫기</button>
+  </div>
+  <div class="vbody" id="vOut"></div>
 </div>
 <div id="printArea"></div>
 
@@ -1077,6 +1102,7 @@ function renderPerson(id){
   S.cur = id;
   const pc = toNum($('#pCls').value); if (pc != null && pc !== s.cls) $('#pCls').value = s.cls;
   $('#pOut').innerHTML = personHTML(s, false);
+  syncViewer();
 }
 $('#pId').addEventListener('input', e => { const v = toNum(e.target.value.trim()); if (v != null && String(v).length >= 5) renderPerson(v); });
 $('#pId').addEventListener('change', e => { const v = toNum(e.target.value.trim()); if (v != null) renderPerson(v); });
@@ -1368,6 +1394,7 @@ function semShow(id){
   S.semCur = id;
   const pc = toNum($('#sPCls').value); if (pc != null && pc !== r.cls) $('#sPCls').value = r.cls;
   $('#sPOut').innerHTML = semPersonHTML(r, false);
+  syncViewer();
 }
 function semStep(d){
   const ids = semPersonIds(); if (!ids.length) return;
@@ -1431,6 +1458,64 @@ function restoreSem(wb, cfg){
   $('#nSem').textContent = `✓ 결과 파일에서 복원 · ${recs.size}명`;
   return recs.size;
 }
+
+/* ---------- 학생 확인 화면 (전체화면) ---------- */
+const V = {mode:null};
+function openViewer(mode){
+  V.mode = mode;
+  const src = mode === 'sem' ? $('#sPCls') : $('#pCls');
+  $('#vCls').innerHTML = src.innerHTML; $('#vCls').value = src.value;
+  $('#viewer').classList.add('on'); document.body.classList.add('viewing');
+  if (mode === 'sem' ? !S.semCur : !S.cur) (mode === 'sem' ? semStep : stepPerson)(1);
+  syncViewer();
+  try { document.documentElement.requestFullscreen?.().catch(() => {}); } catch(e){}
+}
+function closeViewer(){
+  V.mode = null;
+  $('#viewer').classList.remove('on'); document.body.classList.remove('viewing'); $('#vOut').innerHTML = '';
+  try { if (document.fullscreenElement) document.exitFullscreen(); } catch(e){}
+}
+function syncViewer(){
+  if (!V.mode) return;
+  if (V.mode === 'sem'){
+    const r = S.sem && semRows().find(x => semId(x) === S.semCur);
+    $('#vOut').innerHTML = r ? semPersonHTML(r, false) : '<div class="card muted">학번을 입력하세요.</div>';
+    $('#vId').value = S.semCur || ''; $('#vCls').value = $('#sPCls').value;
+  } else {
+    const s = S.R?.byId.get(S.cur);
+    $('#vOut').innerHTML = s ? personHTML(s, false) : '<div class="card muted">학번을 입력하세요.</div>';
+    $('#vId').value = S.cur || ''; $('#vCls').value = $('#pCls').value;
+  }
+  $('#viewer').scrollTop = 0;
+}
+$('#btnView').onclick = () => openViewer('reg');
+$('#sBtnView').onclick = () => openViewer('sem');
+$('#vClose').onclick = closeViewer;
+$('#vPrev').onclick = () => V.mode === 'sem' ? semStep(-1) : stepPerson(-1);
+$('#vNext').onclick = () => V.mode === 'sem' ? semStep(1) : stepPerson(1);
+$('#vCls').addEventListener('change', e => {
+  const src = V.mode === 'sem' ? $('#sPCls') : $('#pCls');
+  src.value = e.target.value; src.dispatchEvent(new Event('change'));
+  syncViewer();
+});
+$('#vId').addEventListener('change', e => {
+  const v = toNum(e.target.value.trim()); if (v == null) return;
+  V.mode === 'sem' ? semShow(v) : renderPerson(v);
+  if (V.mode !== 'sem' && !S.R?.byId.has(v)) $('#vOut').innerHTML = `<div class="card msg warn">학번 ${v} 학생을 찾지 못했습니다.</div>`;
+  if (V.mode === 'sem' && !semRows().some(x => semId(x) === v)) $('#vOut').innerHTML = `<div class="card msg warn">학번 ${v} 학생이 올린 파일에 없습니다.</div>`;
+});
+$('#vId').addEventListener('keydown', e => { if (e.key === 'Enter') e.target.dispatchEvent(new Event('change')); });
+document.addEventListener('keydown', e => {
+  if (!V.mode) return;
+  if (e.key === 'Escape'){ e.preventDefault(); closeViewer(); return; }
+  if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+  const tag = (e.target.tagName || '').toLowerCase();
+  if (tag === 'select' || (tag === 'input' && e.target.id !== 'vId')) return;
+  if (e.target.id === 'vId') e.target.blur();
+  e.preventDefault(); e.stopImmediatePropagation();
+  V.mode === 'sem' ? semStep(e.key === 'ArrowLeft' ? -1 : 1) : stepPerson(e.key === 'ArrowLeft' ? -1 : 1);
+}, true);
+document.addEventListener('fullscreenchange', () => { /* 전체화면만 해제되어도 확인 화면은 유지 */ });
 
 /* ---------- 결과 엑셀 다시 열기 ---------- */
 function rowsByHeader(ws){
