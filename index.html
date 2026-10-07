@@ -138,9 +138,10 @@ body.viewing{overflow:hidden}
 #viewer .vchips span{background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:5px 12px;font-size:15px;color:var(--tx2)}
 #viewer .vchips em{font-style:normal;margin-right:6px;font-size:13px}
 #viewer .vchips b{color:var(--tx);font-size:20px}
-#viewer .anst th,#viewer .anst td{padding:6px 4px;font-size:16px}
-#viewer .anst th{min-width:52px}
-#viewer .anst td{min-width:30px}
+#viewer .anst{table-layout:fixed;width:100%}
+#viewer .anst th,#viewer .anst td{padding:6px 2px;font-size:16px;min-width:0;overflow:hidden;text-overflow:clip;white-space:normal;word-break:keep-all}
+#viewer .anst tr > th:first-child{width:76px}
+#viewer .tw{overflow-x:hidden}
 #viewer .vbody h2{font-size:20px}
 #viewer .vhint{font-size:12.5px;color:var(--tx2);margin-left:auto;align-self:center}
 @media print{#viewer{display:none!important}}
@@ -1090,7 +1091,8 @@ function answerHTML(s, forPrint, compact){
   const nOk = ok.filter(Boolean).length;
   const stu = (v, it) => v === '.' ? decodeAns(it.ans) : v === '-' ? '무표기' : v === '' ? '—' : decodeAns(v);
   const mark = (v) => v === '.' ? '<b style="color:var(--green)">O</b>' : '<b style="color:var(--red)">X</b>';
-  const per = compact && S.ans.items.length <= 25 ? S.ans.items.length : 10;
+  const nI = S.ans.items.length;
+  const per = compact ? Math.ceil(nI / Math.ceil(nI / 25)) : 10;   // 확인 화면: 25문항까지 한 줄, 넘으면 고르게 나눔
   let blocks = '';
   for (let i = 0; i < items.length; i += per){
     const sl = items.slice(i, i + per), rv = r.raw.slice(i, i + per);
@@ -1520,11 +1522,13 @@ function fitViewer(){
   const body = $('#vOut'); if (!V.mode) return;
   // 화면 높이에 맞춰 확대/축소: 길면 줄이고(최소 0.55), 공간이 남으면 키운다(최대 1.4)
   const avail = window.innerHeight - $('#viewer .vbar').offsetHeight - 4;
-  const fits = () => body.getBoundingClientRect().height <= avail;
+  const fits = () => body.getBoundingClientRect().height <= avail &&
+    [...body.querySelectorAll('.tw, .card, .anst td, .anst th')].every(e => e.scrollWidth <= e.clientWidth + 1) &&
+    $('#viewer').scrollWidth <= $('#viewer').clientWidth + 1;
   body.style.zoom = 1;
   let z = Math.max(0.55, Math.min(1.4, avail / body.scrollHeight));
   body.style.zoom = z;
-  for (let i = 0; i < 12 && !fits() && z > 0.55; i++){ z = Math.max(0.55, z - 0.04); body.style.zoom = z; }
+  for (let i = 0; i < 25 && !fits() && z > 0.55; i++){ z = Math.max(0.55, z - 0.04); body.style.zoom = z; }
 }
 window.addEventListener('resize', () => { if (V.mode) fitViewer(); });
 function syncViewer(){
