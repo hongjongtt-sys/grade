@@ -122,10 +122,26 @@ footer b{color:var(--green)}
 body.viewing{overflow:hidden}
 #viewer .vbar{position:sticky;top:0;z-index:2;display:flex;flex-wrap:wrap;gap:10px;align-items:end;padding:12px 16px;background:rgba(11,13,18,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
 #viewer .vbar label.fld{flex:0 1 150px}
-#viewer .vbody{max-width:1180px;margin:0 auto;padding:18px 16px 40px;font-size:17px}
-#viewer .vbody .stat .v{font-size:22px!important}
-#viewer .vbody h2{font-size:22px}
-#viewer .vbody table{font-size:15.5px}
+#viewer .vbody{max-width:1500px;margin:0 auto;padding:12px 16px 16px;font-size:16px;transform-origin:top center}
+#viewer .card{padding:14px 16px;margin-bottom:10px}
+#viewer .vhead{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 16px;margin-bottom:10px}
+#viewer .vhead .nm{font-size:30px;font-weight:800;text-shadow:0 0 18px rgba(111,157,255,.5)}
+#viewer .vhead .sub{font-size:18px;color:var(--tx2)}
+#viewer .vstats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px}
+#viewer .vstats .stat{padding:8px 12px}
+#viewer .vstats .stat .k{font-size:13px}
+#viewer .vstats .stat .v{font-size:24px!important;line-height:1.2}
+#viewer .vstats .stat .v small{font-size:14px;color:var(--tx2);font-weight:600}
+#viewer .posbar{margin:18px 4px 2px;height:40px}
+#viewer .vrow{display:flex;flex-wrap:wrap;align-items:center;gap:8px 18px;margin-bottom:10px}
+#viewer .vchips{display:flex;flex-wrap:wrap;gap:8px}
+#viewer .vchips span{background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:5px 12px;font-size:15px;color:var(--tx2)}
+#viewer .vchips em{font-style:normal;margin-right:6px;font-size:13px}
+#viewer .vchips b{color:var(--tx);font-size:20px}
+#viewer .anst th,#viewer .anst td{padding:6px 4px;font-size:16px}
+#viewer .anst th{min-width:52px}
+#viewer .anst td{min-width:30px}
+#viewer .vbody h2{font-size:20px}
 #viewer .vhint{font-size:12.5px;color:var(--tx2);margin-left:auto;align-self:center}
 @media print{#viewer{display:none!important}}
 /* print */
@@ -1065,7 +1081,7 @@ function personHTML(s, forPrint){
   </div>
   <div class="card"><h2>문항별 정오표</h2>${answerHTML(s, false)}</div>`;
 }
-function answerHTML(s, forPrint){
+function answerHTML(s, forPrint, compact){
   const r = ansOf(s);
   if (!r) return forPrint ? `<p style="font-size:12px;margin-top:14px">문항별 정오표: 정오표 미업로드</p>`
     : `<div class="msg info">정오표 미업로드 — ${S.myCls.has(s.cls) ? '이 반 정오표를 올리면 문항별 정오가 표시됩니다.' : '정오표를 올리지 않은 반이라 총점·석차·등급·성취도만 표시합니다.'}</div>`;
@@ -1074,7 +1090,7 @@ function answerHTML(s, forPrint){
   const nOk = ok.filter(Boolean).length;
   const stu = (v, it) => v === '.' ? decodeAns(it.ans) : v === '-' ? '무표기' : v === '' ? '—' : decodeAns(v);
   const mark = (v) => v === '.' ? '<b style="color:var(--green)">O</b>' : '<b style="color:var(--red)">X</b>';
-  const per = forPrint ? 10 : 10;
+  const per = compact && S.ans.items.length <= 25 ? S.ans.items.length : 10;
   let blocks = '';
   for (let i = 0; i < items.length; i += per){
     const sl = items.slice(i, i + per), rv = r.raw.slice(i, i + per);
@@ -1088,6 +1104,10 @@ function answerHTML(s, forPrint){
   }
   const mism = r.total == null || key6(r.total) !== key6(s.score);
   const sc = [['선택형', r.obj, mx.obj], ['서답형', r.sub, mx.sub], ...((r.etc || mx.etc) ? [['기타', r.etc, mx.etc]] : []), ['총점', r.total, mx.total]];
+  if (compact){
+    return `<div class="vrow"><h2 style="margin:0">문항별 정오표</h2><div class="vchips">${sc.map(([k, v, m]) => `<span><em>${k}</em><b>${fmtS(v)}</b>${m != null ? '/' + fmtS(m) : ''}</span>`).join('')}<span><em>정답 수</em><b>${nOk}</b>/${items.length}</span></div></div>` +
+      (mism ? `<div class="msg err">⚠️ 정오표 총점(${fmtS(r.total)})이 일람표 점수(${fmtS(s.score)})와 다릅니다.</div>` : '') + blocks;
+  }
   const summary = forPrint
     ? `<table><tbody><tr>${sc.map(([k]) => `<th>${k}</th>`).join('')}<th>선택형 정답 수</th></tr><tr>${sc.map(([, v, m]) => `<td>${fmtS(v)}${m != null ? ' / ' + fmtS(m) : ''}</td>`).join('')}<td>${nOk} / ${items.length}</td></tr></tbody></table>`
     : `<div class="pgrid">${sc.map(([k, v, m]) => `<div class="stat"><div class="k">${k}</div><div class="v" style="font-size:18px">${fmtS(v)}<span class="muted" style="font-size:13px">${m != null ? ' / ' + fmtS(m) : ''}</span></div></div>`).join('')}
@@ -1482,6 +1502,31 @@ function closeViewer(){
   $('#viewer').classList.remove('on'); document.body.classList.remove('viewing'); $('#vOut').innerHTML = '';
   try { if (document.fullscreenElement) document.exitFullscreen(); } catch(e){}
 }
+function viewerPersonHTML(s){
+  const R = S.R, c = R.byClass.find(x => x.cls === s.cls);
+  const full = toNum($('#mFull').value) || 100;
+  const pos = x => Math.max(0, Math.min(100, x / full * 100));
+  const sign = x => (x >= 0 ? '+' : '') + x.toFixed(2);
+  const name = nm(s.id);
+  const st = [['총점', fmtS(s.score)], ['석차/응시자', `${s.rank}<small>(${s.tie})</small>/${R.N}`], ['등급', s.grade + '등급'],
+    ['성취도', R.hasAch ? s.ach : '—'], ['반 석차', `${s.clsRank}/${s.clsN}`],
+    ['학년 평균', `${fmt2(R.mean)} <small>(${sign(s.score - R.mean)})</small>`], [`${s.cls}반 평균`, `${fmt2(c.mean)} <small>(${sign(s.score - c.mean)})</small>`]];
+  return `<div class="card"><div class="vhead"><span class="nm">${esc(name || String(s.id))}</span><span class="sub">${s.id} · ${s.cls}반 ${s.no}번 · ${esc(subjName())} ${esc(examLabel())}</span></div>
+    <div class="vstats">${st.map(([k, v]) => `<div class="stat"><div class="k">${k}</div><div class="v">${v}</div></div>`).join('')}</div>
+    ${posBar(s, R, c, pos, full)}</div>
+    <div class="card">${ansOf(s) ? answerHTML(s, false, true) : `<h2 style="margin:0 0 8px">문항별 정오표</h2>${answerHTML(s, false)}`}</div>`;
+}
+function fitViewer(){
+  const body = $('#vOut'); if (!V.mode) return;
+  // 화면 높이에 맞춰 확대/축소: 길면 줄이고(최소 0.55), 공간이 남으면 키운다(최대 1.4)
+  const avail = window.innerHeight - $('#viewer .vbar').offsetHeight - 4;
+  const fits = () => body.getBoundingClientRect().height <= avail;
+  body.style.zoom = 1;
+  let z = Math.max(0.55, Math.min(1.4, avail / body.scrollHeight));
+  body.style.zoom = z;
+  for (let i = 0; i < 12 && !fits() && z > 0.55; i++){ z = Math.max(0.55, z - 0.04); body.style.zoom = z; }
+}
+window.addEventListener('resize', () => { if (V.mode) fitViewer(); });
 function syncViewer(){
   if (!V.mode) return;
   if (V.mode === 'sem'){
@@ -1490,10 +1535,11 @@ function syncViewer(){
     $('#vId').value = S.semCur || ''; $('#vCls').value = $('#sPCls').value;
   } else {
     const s = S.R?.byId.get(S.cur);
-    $('#vOut').innerHTML = s ? personHTML(s, false) : '<div class="card muted">학번을 입력하세요.</div>';
+    $('#vOut').innerHTML = s ? viewerPersonHTML(s) : '<div class="card muted">학번을 입력하세요.</div>';
     $('#vId').value = S.cur || ''; $('#vCls').value = $('#pCls').value;
   }
   $('#viewer').scrollTop = 0;
+  fitViewer();
 }
 $('#btnView').onclick = () => openViewer('reg');
 $('#sBtnView').onclick = () => openViewer('sem');
