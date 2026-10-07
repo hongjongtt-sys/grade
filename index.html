@@ -170,7 +170,16 @@ footer b{color:var(--green)}
           📂 결과 엑셀 다시 열기
         </label>
       </div>
-      <div class="grid g4">
+      <div class="grid g4" id="semZone" style="display:none">
+        <label class="drop" id="dropSem" style="grid-column:1/-1">
+          <input type="file" accept=".xlsx,.xls,.xlsm" id="fSem" multiple>
+          <div class="t">학기말 성적일람표 <span class="tag req">필수 · 여러 개</span></div>
+          <div class="d">나이스 → 교과담임 → 성적조회/통계 → 학기말성적조회 → <b>성적일람표</b> (산출기준: 학기말, <b>받은점수기준</b> 권장). 강의실별 파일을 한꺼번에 여러 개 올릴 수 있습니다.<br>
+          석차·석차등급·성취도는 나이스가 학년 전체 기준으로 계산한 값을 그대로 보여줍니다.</div>
+          <div class="f" id="nSem"></div>
+        </label>
+      </div>
+      <div class="grid g4" id="regZones">
         <label class="drop" id="dropRoster">
           <input type="file" accept=".xlsx,.xls,.xlsm" id="fRoster">
           <div class="t">전체 성적일람표 <span class="tag req">필수</span></div>
@@ -180,7 +189,7 @@ footer b{color:var(--green)}
         <label class="drop" id="dropCuts">
           <input type="file" accept=".xlsx,.xls,.xlsm" id="fCuts">
           <div class="t">분할점수 <span class="tag req">필수</span></div>
-          <div class="d">과목 하나짜리 파일 또는 학교 전체 결과표(추정분할점수 산출 결과). 아래에 직접 입력해도 됩니다.</div>
+          <div class="d">나이스 → 교과담임 → 분할점수 → 분할점수관리 → 정기시험추정분할점수산출관리 → 예상추정분할점수조회 → <b>엑셀다운로드</b>. 학교 전체 결과표나 직접 입력도 됩니다.</div>
           <div class="f" id="nCuts"></div>
         </label>
         <label class="drop" id="dropAns">
@@ -199,7 +208,7 @@ footer b{color:var(--green)}
       <div id="loadMsgs"></div>
     </div>
 
-    <div class="grid g2">
+    <div class="grid g2" id="regCards">
       <div class="card">
         <h2>2. 시험 정보</h2>
         <div class="cutrow">
@@ -295,6 +304,53 @@ footer b{color:var(--green)}
         <p class="muted" style="margin:8px 0 0">반을 고르면 ◀ ▶가 그 반 안에서 번호 순으로 움직입니다. 키보드 ← → 로도 넘길 수 있습니다.</p>
       </div>
       <div id="pOut"></div>
+    </div>
+  </section>
+
+  <section id="semResults" class="hide">
+    <div class="tabs noprint" id="semTabs">
+      <button data-tab="sAll" class="on">학기말 결과</button>
+      <button data-tab="sOne">개인 조회</button>
+    </div>
+    <div id="sTabAll">
+      <div class="card">
+        <div style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px;align-items:center;margin-bottom:12px">
+          <h2 id="sTitle" style="margin:0"></h2>
+          <div class="controls noprint">
+            <button class="btn" id="sBtnXlsx">⬇ 엑셀 내려받기</button>
+            <button class="btn ghost" id="sBtnPrint">🖨 인쇄</button>
+          </div>
+        </div>
+        <div class="stats" id="sStats"></div>
+        <div id="sWarn"></div>
+      </div>
+      <div class="grid g2">
+        <div class="card"><h2>성취도 분포</h2><div class="tw"><table id="sAch"></table></div><p class="muted" style="margin:8px 0 0">학년 전체 비율은 나이스 일람표의 '성취도별분포비율'(E에 미이수자 포함)입니다.</p></div>
+        <div class="card"><h2>평가 항목</h2><div class="tw"><table id="sItems"></table></div></div>
+      </div>
+      <div class="card">
+        <h2>학생 목록</h2>
+        <div class="filters noprint">
+          <label class="fld">반<select id="sfCls"><option value="">전체</option></select></label>
+          <label class="fld">정렬<select id="sfSort"><option value="id">학번순</option><option value="rank">석차순</option></select></label>
+          <label class="fld">학번·이름 검색<input type="text" id="sfQ" placeholder="예: 20103"></label>
+        </div>
+        <div class="tw tall"><table id="sList"></table></div>
+      </div>
+    </div>
+    <div id="sTabOne" class="hide">
+      <div class="card noprint">
+        <div class="filters" style="margin:0">
+          <label class="fld" style="flex:0 1 130px">반<select id="sPCls"><option value="">전체</option></select></label>
+          <label class="fld">학번 입력 또는 선택<input type="text" id="sPId" list="sPList" placeholder="예: 20103" inputmode="numeric"></label>
+          <datalist id="sPList"></datalist>
+          <button class="btn ghost" id="sPPrev">◀</button>
+          <button class="btn ghost" id="sPNext">▶</button>
+          <button class="btn" id="sBtnPrintOne">🖨 개인 성적표 인쇄</button>
+        </div>
+        <p class="muted" style="margin:8px 0 0">반을 고르면 ◀ ▶가 그 반 안에서 번호 순으로 움직입니다. 키보드 ← → 로도 넘길 수 있습니다.</p>
+      </div>
+      <div id="sPOut"></div>
     </div>
   </section>
 
@@ -815,9 +871,9 @@ function recompute(){
   const banner = [];
   const opt = getOpt();
   const ok = !!S.roster;
-  if (S.exam === '학기말'){
-    banner.push(`<div class="card msg info" style="margin:0 0 16px">📌 <b>학기말</b> 성적(지필+수행 합산) 파일 형식은 아직 확인하지 못했습니다. 나이스 학기말 성적 파일 샘플을 받으면 이 모드를 추가합니다. 지금은 중간고사·기말고사만 계산합니다.</div>`);
-  }
+  applyMode();
+  if (S.exam === '학기말'){ $('#bannerArea').innerHTML = ''; $('#results').classList.add('hide'); S.R = null; renderSem(); return; }
+  $('#semResults').classList.add('hide');
   if (ok && S.exam !== '학기말'){
     if (opt.cuts.some(v => v == null)) banner.push(`<div class="card msg warn" style="margin:0 0 16px">⚠️ 분할점수 4개를 모두 넣어야 성취도가 계산됩니다. (등급·석차는 계산됨)</div>`);
     else if (!(opt.cuts[0] > opt.cuts[1] && opt.cuts[1] > opt.cuts[2] && opt.cuts[2] > opt.cuts[3])) banner.push(`<div class="card msg err" style="margin:0 0 16px">⚠️ 분할점수가 A/B &gt; B/C &gt; C/D &gt; D/E 순서가 아닙니다. 값을 확인하세요.</div>`);
@@ -1042,13 +1098,16 @@ $('#pCls').addEventListener('change', () => {
   if (ids.length && !ids.includes(S.cur)) showPerson(ids[0]);
 });
 document.addEventListener('keydown', e => {
-  if ($('#tabOne').classList.contains('hide') || !S.R) return;
+  if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+  const reg = S.R && !$('#results').classList.contains('hide') && !$('#tabOne').classList.contains('hide');
+  const sem = S.sem && !$('#semResults').classList.contains('hide') && !$('#sTabOne').classList.contains('hide');
+  if (!reg && !sem) return;
   const t = e.target, tag = (t.tagName || '').toLowerCase();
-  if ((tag === 'input' && t.id !== 'pId') || tag === 'textarea' || tag === 'select') return;
-  if (e.key === 'ArrowLeft' || e.key === 'ArrowRight'){
-    if (t.id === 'pId') t.blur();
-    e.preventDefault(); stepPerson(e.key === 'ArrowLeft' ? -1 : 1);
-  }
+  if ((tag === 'input' && t.id !== 'pId' && t.id !== 'sPId') || tag === 'textarea' || tag === 'select') return;
+  if (t.id === 'pId' || t.id === 'sPId') t.blur();
+  e.preventDefault();
+  const d = e.key === 'ArrowLeft' ? -1 : 1;
+  reg ? stepPerson(d) : semStep(d);
 });
 $('#pPrev').onclick = () => stepPerson(-1);
 $('#pNext').onclick = () => stepPerson(1);
@@ -1113,6 +1172,266 @@ $('#btnXlsx').onclick = () => {
   setTimeout(() => URL.revokeObjectURL(url), 4000);
 };
 
+/* ============================================================
+   학기말 성적일람표 (나이스 → 학기말성적조회 → 성적일람표)
+   석차·석차등급·성취도는 나이스 값을 그대로 사용 (계산하지 않음)
+   ============================================================ */
+function applyMode(){
+  const sem = S.exam === '학기말';
+  $('#semZone').style.display = sem ? '' : 'none';
+  $('#regZones').style.display = sem ? 'none' : '';
+  $('#regCards').style.display = sem ? 'none' : '';
+  $('#styleSeg').style.display = sem ? 'none' : '';
+}
+function parseRank(v){
+  const t = cellStr(v).match(/^(\d+)\s*(?:\(\s*(\d+)\s*\))?$/);
+  return t ? {rank:+t[1], tie:t[2] ? +t[2] : 1} : {rank:null, tie:null};
+}
+function parseSemSheet(wb){
+  for (const name of wb.SheetNames){
+    const rows = sheetRows(wb.Sheets[name]);
+    const h6 = rows.findIndex(r => (r || []).some(v => norm(v).includes('평가방법')));
+    if (h6 < 0) continue;
+    const r6 = rows[h6] || [], r7 = rows[h6 + 1] || [];
+    const col = {}; const cats = [];
+    r6.forEach((v, c) => {
+      const t = norm(v); if (!t || t.includes('평가방법')) return;
+      if (t === '합계') col.sum = c; else if (t === '원점수') col.raw = c; else if (t === '성취도') col.ach = c;
+      else if (t.includes('석차등급')) col.grade = c; else if (t.startsWith('석차')) col.rank = c; else if (t.includes('수강')) col.n = c;
+      else { const m = cellStr(v).match(/^([\s\S]*?)\s*\(\s*([\d.]+)\s*%\s*\)/); cats.push({col:c, name:(m ? m[1] : cellStr(v)).trim(), ratio:m ? +m[2] : null}); }
+    });
+    if (col.sum == null || !cats.length) continue;
+    const first = cats[0].col;
+    const items = [];
+    for (let c = first; c < col.sum; c++){
+      const v = cellStr(r7[c]); if (!v) continue;
+      const m = v.match(/^([\s\S]*?)\s*\(\s*([\d.]+)\s*%\s*\)\s*$/);
+      const cat = [...cats].reverse().find(k => k.col <= c);
+      items.push({col:c, label:(m ? m[1] : v).replace(/\s+/g, ' ').trim(), ratio:m ? +m[2] : null, cat:cat ? cat.name : ''});
+    }
+    // 머리글
+    const meta = {};
+    rows.slice(0, h6).forEach(r => (r || []).forEach(v => {
+      if (typeof v !== 'string') return; let x;
+      if ((x = v.match(/(\d{4})\s*학년도/))) meta.year = +x[1];
+      if ((x = v.match(/제?\s*(\d)\s*학기/))) meta.sem = +x[1];
+      if ((x = v.match(/^\s*(.*?)과?\s*성적\s*일람표\s*(?:\((.*?)\))?/))) { meta.subject = x[1].trim(); if (x[2]) meta.basis = x[2].trim(); }
+      if ((x = v.match(/(\d)\s*학년\s*(\d+)\s*강의실/))) { meta.grade = +x[1]; meta.room = +x[2]; }
+      if ((x = v.match(/교과담당교사\s*\(\s*(.*?)\s*\)/))) meta.teacher = x[1];
+    }));
+    const recs = [], summ = {};
+    const SUMK = {'수강자최고점':'max', '수강자최저점':'min', '수강자평균':'avg', '강의실평균':'room', '과목평균':'subj'};
+    for (let r = h6 + 2; r < rows.length; r++){
+      const row = rows[r] || [];
+      let at = -1, m = null;
+      for (let c = 0; c < first && !m; c++){ const t = cellStr(row[c]).match(/^(\d{1,2})\s*\/\s*(\d{1,3})$/); if (t){ m = t; at = c; } }
+      if (m){
+        let nm = '';
+        for (let c = at + 1; c < first && !nm; c++){ const t = cellStr(row[c]); if (t && !/\//.test(t)) nm = t; }
+        const rk = parseRank(row[col.rank]);
+        recs.push({cls:+m[1], no:+m[2], name:nm, vals:items.map(it => toNum(row[it.col])),
+          sum:toNum(row[col.sum]), raw:toNum(row[col.raw]), ach:cellStr(row[col.ach]), grade:toNum(row[col.grade]),
+          rank:rk.rank, tie:rk.tie, n:toNum(row[col.n])});
+        continue;
+      }
+      const lab = row.slice(0, first).map(norm).find(t => t);
+      if (!lab) continue;
+      if (SUMK[lab]) summ[SUMK[lab]] = {vals:items.map(it => toNum(row[it.col])), sum:toNum(row[col.sum]), raw:toNum(row[col.raw])};
+      if (lab.includes('분포비율')){ const d = row.map(cellStr).find(t => /[A-E]\s*\(/.test(t)); if (d) summ.dist = d; }
+    }
+    if (!recs.length) continue;
+    const dist = {};
+    (summ.dist || '').replace(/([A-E]|미도달)\s*\(\s*([\d.]+)\s*\)/g, (_, k, v) => { dist[k] = +v; });
+    return {meta, items:items.map(({col, ...x}) => x), recs, summ, dist};
+  }
+  throw new Error("'평가방법'과 '반/번호' 머리글이 있는 학기말 성적일람표를 찾지 못했습니다.");
+}
+const semKey = (cls, no) => cls + '-' + no;
+function semId(r){ return (S.sem?.meta.grade || 0) * 10000 + r.cls * 100 + r.no; }
+
+bindDrop('#dropSem', '#fSem', async files => {
+  const msgs = [];
+  for (const f of files){
+    try {
+      const P = parseSemSheet(await readFile(f));
+      if (!S.sem) S.sem = {meta:{...P.meta}, items:P.items, dist:P.dist, summ:P.summ, rooms:[], recs:new Map(), files:[]};
+      else {
+        const same = norm(S.sem.meta.subject) === norm(P.meta.subject) && S.sem.items.length === P.items.length && S.sem.items.every((it, i) => it.label === P.items[i].label);
+        if (!same){ msgs.push(`<div class="msg err">⚠️ ${esc(f.name)}: 과목 또는 평가 항목이 먼저 올린 파일과 달라 건너뛰었습니다.</div>`); continue; }
+      }
+      P.recs.forEach(r => S.sem.recs.set(semKey(r.cls, r.no), r));
+      S.sem.rooms = S.sem.rooms.filter(x => x.room !== P.meta.room);
+      S.sem.rooms.push({room:P.meta.room, n:P.recs.length, avg:P.summ.room || null});
+      S.sem.files.push(f.name);
+      const nOk = P.recs.filter(r => r.n != null).length;
+      msgs.push(`<div class="msg ok">${esc(f.name)}: ${P.meta.room != null ? P.meta.room + '강의실 · ' : ''}${P.recs.length}명 · 평가 항목 ${P.items.length}개${nOk < P.recs.length ? ` · 석차 없는 학생 ${P.recs.length - nOk}명` : ''}</div>`);
+    } catch(err){ console.error(err); msgs.push(`<div class="msg err">${esc(f.name)} 읽기 실패: ${esc(err.message)}</div>`); }
+  }
+  if (S.sem){
+    $('#dropSem').classList.add('ok');
+    $('#nSem').textContent = `✓ ${S.sem.files.length}개 파일 · ${S.sem.recs.size}명`;
+  }
+  setLoadMsg('sem', msgs.join(''));
+  recompute();
+});
+
+function semRows(){
+  return [...S.sem.recs.values()].sort((a, b) => a.cls - b.cls || a.no - b.no);
+}
+function renderSem(){
+  const box = $('#semResults');
+  if (!S.sem){ box.classList.add('hide'); return; }
+  box.classList.remove('hide');
+  const M = S.sem.meta, rows = semRows(), its = S.sem.items, sm = S.sem.summ;
+  const N = rows.find(r => r.n != null)?.n;
+  $('#sTitle').innerHTML = `${esc(M.subject || '과목')} <span class="muted" style="font-weight:500">· ${M.year ? M.year + '학년도 ' : ''}${M.sem ? M.sem + '학기 ' : ''}${M.grade ? M.grade + '학년 ' : ''}학기말${M.basis ? ' (' + esc(M.basis) + ')' : ''}</span>`;
+  const myAvg = rows.filter(r => r.sum != null).reduce((t, r, _, a) => t + r.sum / a.length, 0);
+  $('#sStats').innerHTML = [
+    ['수강자수 (학년)', N != null ? N + '명' : '—'], ['과목 평균 (원점수)', fmtS(sm.subj?.raw)],
+    ['수강자 평균 (합계)', fmtS(sm.avg?.sum)], ['올린 학생', rows.length + '명'],
+    ['올린 반 평균 (합계)', fmt2(myAvg)], ['강의실', S.sem.rooms.map(x => x.room).filter(x => x != null).sort((a, b) => a - b).join(', ') || '—']
+  ].map(([k, v]) => `<div class="stat"><div class="k">${k}</div><div class="v">${v}</div></div>`).join('');
+  const w = [];
+  const noRank = rows.filter(r => r.rank == null);
+  if (noRank.length) w.push(`<div class="msg warn">⚠️ 석차가 비어 있는 학생 ${noRank.length}명: ${noRank.map(r => semId(r) + (r.name ? ' ' + esc(r.name) : '')).join(', ')} (미이수·미응시 등)</div>`);
+  $('#sWarn').innerHTML = w.join('');
+
+  // 성취도 분포
+  const achK = ['A','B','C','D','E', ...(rows.some(r => r.ach === '미도달') || S.sem.dist['미도달'] != null ? ['미도달'] : [])];
+  const cnt = k => rows.filter(r => r.ach === k).length;
+  $('#sAch').innerHTML = `<thead><tr><th>성취도</th><th>학년 전체(%)</th><th>올린 반 인원</th><th>올린 반(%)</th></tr></thead><tbody>` +
+    achK.map(k => `<tr><td><b>${k}</b></td><td>${S.sem.dist[k] != null ? S.sem.dist[k].toFixed(1) : '—'}</td><td>${cnt(k)}</td><td>${pct1(cnt(k), rows.length)}</td></tr>`).join('') +
+    `<tr class="sum"><td>합계</td><td></td><td>${achK.reduce((t, k) => t + cnt(k), 0)}</td><td></td></tr></tbody>` +
+    `<thead><tr><th>석차등급</th><th></th><th>올린 반 인원</th><th>올린 반(%)</th></tr></thead><tbody>` +
+    [1,2,3,4,5].map(g => { const c = rows.filter(r => r.grade === g).length; return `<tr><td><span class="pill gr${g}">${g}등급</span></td><td></td><td>${c}</td><td>${pct1(c, rows.length)}</td></tr>`; }).join('') + `</tbody>`;
+  // 평가 항목
+  $('#sItems').innerHTML = `<thead><tr><th>영역</th><th>명칭</th><th>반영비율</th><th>수강자 평균</th><th>최고점</th><th>최저점</th></tr></thead><tbody>` +
+    its.map((it, i) => `<tr><td>${esc(it.cat)}</td><td class="l" style="white-space:normal;min-width:180px">${esc(it.label)}</td><td>${it.ratio != null ? it.ratio + '%' : ''}</td><td>${fmtS(sm.avg?.vals[i])}</td><td>${fmtS(sm.max?.vals[i])}</td><td>${fmtS(sm.min?.vals[i])}</td></tr>`).join('') +
+    `<tr class="sum"><td>합계</td><td></td><td>${its.reduce((t, x) => t + (x.ratio || 0), 0)}%</td><td>${fmtS(sm.avg?.sum)}</td><td>${fmtS(sm.max?.sum)}</td><td>${fmtS(sm.min?.sum)}</td></tr></tbody>`;
+  // 반 선택
+  const cls = [...new Set(rows.map(r => r.cls))].sort((a, b) => a - b);
+  ['#sfCls', '#sPCls'].forEach(sel => { const e = $(sel), v = e.value; e.innerHTML = `<option value="">전체</option>` + cls.map(c => `<option value="${c}">${c}반</option>`).join(''); e.value = v; });
+  $('#sPList').innerHTML = rows.map(r => `<option value="${semId(r)}">${esc(r.name)}</option>`).join('');
+  renderSemList();
+  if (S.semCur && rows.some(r => semId(r) === S.semCur)) semShow(S.semCur); else $('#sPOut').innerHTML = `<div class="card muted">반을 고르거나 학번을 입력하세요.</div>`;
+}
+function renderSemList(){
+  if (!S.sem) return;
+  const its = S.sem.items, fc = toNum($('#sfCls').value), q = $('#sfQ').value.trim();
+  let rows = semRows().filter(r => (fc == null || r.cls === fc) && (!q || String(semId(r)).includes(q) || r.name.includes(q)));
+  if ($('#sfSort').value === 'rank') rows = rows.sort((a, b) => (a.rank ?? 1e9) - (b.rank ?? 1e9) || a.cls - b.cls || a.no - b.no);
+  $('#sList').innerHTML = `<thead><tr><th>학번</th><th>성명</th>${its.map(it => `<th title="${esc(it.label)}">${esc(it.label.length > 8 ? it.label.slice(0, 7) + '…' : it.label)}<br><span style="font-weight:400">${it.ratio != null ? it.ratio + '%' : ''}</span></th>`).join('')}<th>합계</th><th>원점수</th><th>성취도</th><th>등급</th><th>석차</th></tr></thead><tbody>` +
+    rows.map(r => `<tr><td>${semId(r)}</td><td>${esc(r.name)}</td>${r.vals.map(v => `<td>${fmtS(v)}</td>`).join('')}<td>${fmtS(r.sum)}</td><td><b>${fmtS(r.raw)}</b></td><td>${esc(r.ach)}</td><td>${r.grade != null ? `<span class="pill gr${r.grade}">${r.grade}</span>` : '—'}</td><td>${r.rank != null ? `${r.rank}${r.tie > 1 ? `(${r.tie})` : ''}/${r.n ?? ''}` : '—'}</td></tr>`).join('') + '</tbody>';
+}
+['#sfCls', '#sfSort'].forEach(s => $(s).addEventListener('change', renderSemList));
+$('#sfQ').addEventListener('input', renderSemList);
+$$('#semTabs button').forEach(b => b.onclick = () => {
+  $$('#semTabs button').forEach(x => x.classList.toggle('on', x === b));
+  $('#sTabAll').classList.toggle('hide', b.dataset.tab !== 'sAll');
+  $('#sTabOne').classList.toggle('hide', b.dataset.tab !== 'sOne');
+});
+
+function semPersonHTML(r, forPrint){
+  const M = S.sem.meta, its = S.sem.items, sm = S.sem.summ;
+  const room = S.sem.rooms.find(x => x.avg) && S.sem.rooms.length === 1 ? S.sem.rooms[0] : null;
+  const sign = x => (x >= 0 ? '+' : '') + x.toFixed(2);
+  const subj = sm.subj?.raw;
+  const cards = [
+    ['학번', semId(r)], ['성명', r.name || '—'], ['반 · 번호', `${r.cls}반 ${r.no}번`],
+    ['합계', fmtS(r.sum)], ['원점수', fmtS(r.raw)], ['성취도', r.ach || '—'], ['석차등급', r.grade != null ? r.grade + '등급' : '—'],
+    ['석차(동석차)/수강자수', r.rank != null ? `${r.rank}(${r.tie})/${r.n ?? ''}` : '—'],
+    ['과목 평균 대비', subj != null && r.raw != null ? `${fmtS(subj)} (${sign(r.raw - subj)})` : '—']
+  ];
+  const head = `${M.year ? M.year + '학년도 ' : ''}${M.sem ? M.sem + '학기 ' : ''}학기말`;
+  const itemRows = its.map((it, i) => `<tr><td>${esc(it.cat)}</td><td class="l" style="white-space:normal">${esc(it.label)}</td><td>${it.ratio != null ? it.ratio + '%' : ''}</td><td><b>${fmtS(r.vals[i])}</b></td><td>${fmtS(sm.avg?.vals[i])}</td><td>${fmtS(sm.max?.vals[i])}</td></tr>`).join('') +
+    `<tr class="sum"><td>합계</td><td class="l">반영비율 적용 합산</td><td>${its.reduce((t, x) => t + (x.ratio || 0), 0)}%</td><td><b>${fmtS(r.sum)}</b></td><td>${fmtS(sm.avg?.sum)}</td><td>${fmtS(sm.max?.sum)}</td></tr>`;
+  const itemTable = `<table><colgroup><col style="width:13%"><col style="width:37%"><col><col><col><col></colgroup><thead><tr><th>영역</th><th>명칭</th><th>반영비율</th><th>받은 점수</th><th>수강자 평균</th><th>최고점</th></tr></thead><tbody>${itemRows}</tbody></table>`;
+  if (forPrint){
+    return `<div class="rep"><h2>${esc(M.subject || '')} 학기말 개인 성적표</h2><div class="sub">${esc(head)}${M.basis ? ' · ' + esc(M.basis) : ''}</div>
+      <table><tbody>${cards.map(([k, v], i) => i % 2 === 0 ? `<tr><th>${k}</th><td>${esc(v)}</td>` : `<th>${k}</th><td>${esc(v)}</td></tr>`).join('')}${cards.length % 2 ? '<th></th><td></td></tr>' : ''}</tbody></table>
+      <h3 style="margin:14px 0 6px;color:#000">평가 항목별 점수</h3>${itemTable}
+      <div class="foot">출력일 ${new Date().toLocaleDateString('ko-KR')}</div></div>`;
+  }
+  return `<div class="card"><h2>${esc(r.name ? r.name + ' · ' : '')}${semId(r)}</h2>
+    <div class="pgrid">${cards.map(([k, v]) => `<div class="stat"><div class="k">${k}</div><div class="v" style="font-size:18px">${esc(v)}</div></div>`).join('')}</div></div>
+    <div class="card"><h2>평가 항목별 점수</h2><div class="tw">${itemTable}</div>
+    <p class="muted" style="margin:8px 0 0">${M.basis ? esc(M.basis) + ': ' : ''}받은 점수는 나이스 일람표 값 그대로이며, 합계는 반영비율을 적용한 점수입니다.</p></div>`;
+}
+function semPersonIds(){
+  const c = toNum($('#sPCls').value);
+  return semRows().filter(r => c == null || r.cls === c).map(semId);
+}
+function semShow(id){
+  const r = semRows().find(x => semId(x) === id);
+  $('#sPId').value = id;
+  if (!r){ $('#sPOut').innerHTML = `<div class="card msg warn">학번 ${esc(id)} 학생이 올린 파일에 없습니다.</div>`; return; }
+  S.semCur = id;
+  const pc = toNum($('#sPCls').value); if (pc != null && pc !== r.cls) $('#sPCls').value = r.cls;
+  $('#sPOut').innerHTML = semPersonHTML(r, false);
+}
+function semStep(d){
+  const ids = semPersonIds(); if (!ids.length) return;
+  let i = ids.indexOf(S.semCur);
+  i = i < 0 ? (d > 0 ? 0 : ids.length - 1) : Math.max(0, Math.min(ids.length - 1, i + d));
+  semShow(ids[i]);
+}
+$('#sPCls').addEventListener('change', () => { const ids = semPersonIds(); if (ids.length && !ids.includes(S.semCur)) semShow(ids[0]); });
+$('#sPId').addEventListener('input', e => { const v = toNum(e.target.value.trim()); if (v != null && String(v).length >= 5) semShow(v); });
+$('#sPId').addEventListener('change', e => { const v = toNum(e.target.value.trim()); if (v != null) semShow(v); });
+$('#sPPrev').onclick = () => semStep(-1);
+$('#sPNext').onclick = () => semStep(1);
+$('#sBtnPrintOne').onclick = () => {
+  const r = semRows().find(x => semId(x) === S.semCur);
+  if (!r) return alert('먼저 학생을 고르세요.');
+  $('#printArea').innerHTML = semPersonHTML(r, true);
+  document.body.classList.add('print-personal'); window.print();
+};
+$('#sBtnPrint').onclick = () => { document.body.classList.remove('print-personal'); window.print(); };
+
+function downloadWb(wb, fname){
+  const blob = new Blob([XLSX.write(wb, {bookType:'xlsx', type:'array'})], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = fname;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+$('#sBtnXlsx').onclick = () => {
+  if (!S.sem) return;
+  const M = S.sem.meta, its = S.sem.items;
+  const wb = XLSX.utils.book_new();
+  const add = (aoa, name, w) => { const ws = XLSX.utils.aoa_to_sheet(aoa); ws['!cols'] = w.map(x => ({wch:x})); XLSX.utils.book_append_sheet(wb, ws, name); };
+  const sh1 = [['학번', '성명', '반', '번호', ...its.map(it => it.label), '합계', '원점수', '성취도', '석차등급', '석차', '동석차수', '수강자수']];
+  semRows().forEach(r => sh1.push([semId(r), r.name, r.cls, r.no, ...r.vals, r.sum, r.raw, r.ach, r.grade, r.rank, r.tie, r.n]));
+  add(sh1, '학기말성적', [9, 8, 4, 5, ...its.map(() => 12), 8, 7, 7, 8, 6, 8, 8]);
+  const sm = S.sem.summ;
+  const sh2 = [['영역', '명칭', '반영비율(%)', '수강자 평균', '최고점', '최저점']];
+  its.forEach((it, i) => sh2.push([it.cat, it.label, it.ratio, sm.avg?.vals[i] ?? '', sm.max?.vals[i] ?? '', sm.min?.vals[i] ?? '']));
+  sh2.push(['합계', '', its.reduce((t, x) => t + (x.ratio || 0), 0), sm.avg?.sum ?? '', sm.max?.sum ?? '', sm.min?.sum ?? '']);
+  add(sh2, '평가항목', [10, 50, 11, 11, 8, 8]);
+  const data = {meta:M, items:its, dist:S.sem.dist, summ:S.sem.summ, rooms:S.sem.rooms, files:S.sem.files};
+  add([['항목', '값'], ['앱', '성적산출기'], ['모드', '학기말'], ['학기말데이터', JSON.stringify(data)]], '설정', [12, 60]);
+  downloadWb(wb, `${M.year ? M.year + '-' : ''}${M.sem ? M.sem + '학기-' : ''}학기말-${norm(M.subject || '과목')}-성적.xlsx`);
+};
+function restoreSem(wb, cfg){
+  const data = JSON.parse(cfg['학기말데이터']);
+  const T = rowsByHeader(wb.Sheets['학기말성적']);
+  const k = x => T.col(x);
+  const n0 = k('번호') + 1;
+  const recs = new Map();
+  T.rows.forEach(r => {
+    const cls = toNum(r[k('반')]), no = toNum(r[k('번호')]); if (cls == null || no == null) return;
+    recs.set(semKey(cls, no), {cls, no, name:cellStr(r[k('성명')]), vals:data.items.map((_, i) => toNum(r[n0 + i])),
+      sum:toNum(r[k('합계')]), raw:toNum(r[k('원점수')]), ach:cellStr(r[k('성취도')]), grade:toNum(r[k('석차등급')]),
+      rank:toNum(r[k('석차')]), tie:toNum(r[k('동석차수')]), n:toNum(r[k('수강자수')])});
+  });
+  S.sem = {...data, recs};
+  S.semCur = null;
+  setSeg('#examSeg', '학기말');
+  $('#dropSem').classList.add('ok');
+  $('#nSem').textContent = `✓ 결과 파일에서 복원 · ${recs.size}명`;
+  return recs.size;
+}
+
 /* ---------- 결과 엑셀 다시 열기 ---------- */
 function rowsByHeader(ws){
   const rows = sheetRows(ws).filter(r => r && r.some(v => v != null && v !== ''));
@@ -1120,6 +1439,10 @@ function rowsByHeader(ws){
   return {h, rows, col: k => h.indexOf(k)};
 }
 function restoreFrom(wb){
+  if (wb.Sheets['설정'] && wb.Sheets['학기말성적']){
+    const c = {}; sheetRows(wb.Sheets['설정']).forEach(r => { if (r && r[0] != null) c[norm(r[0])] = r[1]; });
+    return {sem:restoreSem(wb, c)};
+  }
   if (!wb.Sheets['설정'] || !wb.Sheets['정렬표']) throw new Error("이 웹앱에서 내려받은 결과 엑셀이 아닙니다('설정'·'정렬표' 시트 없음). 처음 산출할 때는 나이스 일람표를 올려 주세요.");
   const cfg = {};
   sheetRows(wb.Sheets['설정']).forEach(r => { if (r && r[0] != null) cfg[norm(r[0])] = r[1] == null ? '' : r[1]; });
@@ -1176,6 +1499,12 @@ bindDrop('#dropRestore', '#fRestore', async files => {
   const f = files[0];
   try {
     const n = restoreFrom(await readFile(f));
+    if (typeof n === 'object'){
+      S.msgs = {};
+      setLoadMsg('sem', `<div class="msg ok">📂 학기말 결과 엑셀에서 다시 열었습니다: ${n.sem}명</div>`);
+      recompute();
+      return;
+    }
     ['#dropRoster', '#dropCuts'].forEach(s => $(s).classList.add('ok'));
     $('#nRoster').textContent = `✓ 결과 파일에서 복원 (${f.name})`;
     $('#nCuts').textContent = '✓ 결과 파일에서 복원';
