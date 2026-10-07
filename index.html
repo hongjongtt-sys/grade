@@ -1,0 +1,1195 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>성적 산출기</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --bg:#0b0d12; --card:rgba(255,255,255,.05); --card2:rgba(255,255,255,.08);
+  --line:rgba(255,255,255,.10); --line2:rgba(255,255,255,.18);
+  --tx:#e8ebf2; --tx2:#a3aabb; --tx3:#6f7789;
+  --blue:#6f9dff; --green:#48d9a4; --purple:#9b7cff; --warn:#ffb85c; --red:#ff6b7f;
+  --r:16px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--tx);overflow-x:hidden}
+body{font-family:"Pretendard Variable",Pretendard,"Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased;
+  background:
+   radial-gradient(900px 500px at 10% -10%,rgba(111,157,255,.16),transparent 60%),
+   radial-gradient(700px 500px at 100% 0%,rgba(155,124,255,.12),transparent 60%),
+   radial-gradient(800px 600px at 50% 110%,rgba(72,217,164,.08),transparent 60%),var(--bg);
+  background-attachment:fixed;min-height:100vh}
+.num,td,th{font-variant-numeric:tabular-nums}
+.wrap{max-width:1180px;margin:0 auto;padding:20px 16px 40px}
+header.top{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:center;justify-content:space-between;margin-bottom:18px}
+h1{margin:0;font-size:24px;font-weight:800;letter-spacing:-.02em;
+  text-shadow:0 0 18px rgba(111,157,255,.55),0 0 42px rgba(155,124,255,.25)}
+h1 small{display:block;font-size:12.5px;font-weight:500;color:var(--tx2);text-shadow:none;letter-spacing:0;margin-top:2px}
+h2{font-size:16px;margin:0 0 12px;font-weight:700;letter-spacing:-.01em;text-shadow:0 0 14px rgba(111,157,255,.35)}
+h3{font-size:14px;margin:0 0 8px;font-weight:700;color:var(--tx2)}
+.card{background:var(--card);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border:1px solid var(--line);border-radius:var(--r);padding:18px;margin-bottom:16px;min-width:0}
+.grid{display:grid;gap:16px}
+.g2{grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr))}
+.g4{grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr))}
+.seg{display:inline-flex;background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:999px;padding:3px;gap:2px;flex-wrap:wrap}
+.seg button{all:unset;cursor:pointer;padding:6px 14px;border-radius:999px;font-size:13.5px;font-weight:600;color:var(--tx2)}
+.seg button.on{background:linear-gradient(135deg,rgba(111,157,255,.35),rgba(155,124,255,.35));color:#fff;box-shadow:0 0 0 1px rgba(111,157,255,.5) inset}
+.controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+/* dropzones */
+.drop{position:relative;display:block;border:1.5px dashed var(--line2);border-radius:14px;padding:14px;cursor:pointer;transition:.15s;background:rgba(255,255,255,.02);min-width:0}
+.drop:hover,.drop.over{border-color:var(--blue);background:rgba(111,157,255,.07)}
+.drop.ok{border-style:solid;border-color:rgba(72,217,164,.55);background:rgba(72,217,164,.06)}
+.drop.disabled{opacity:.55;cursor:not-allowed}
+.drop input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%}
+.drop.disabled input{display:none}
+.drop .t{font-weight:700;font-size:14px;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.drop .d{font-size:12.5px;color:var(--tx2);margin-top:4px;word-break:keep-all}
+.drop .f{font-size:12.5px;color:var(--green);margin-top:6px;word-break:break-all}
+.tag{display:inline-block;font-size:11px;font-weight:700;padding:1px 7px;border-radius:999px;border:1px solid}
+.tag.req{color:var(--blue);border-color:rgba(111,157,255,.5)}
+.tag.opt{color:var(--tx2);border-color:var(--line2)}
+.tag.soon{color:var(--warn);border-color:rgba(255,184,92,.5)}
+/* inputs */
+label.fld{display:flex;flex-direction:column;gap:4px;font-size:12.5px;color:var(--tx2);min-width:0}
+input[type=number],input[type=text],select{background:rgba(0,0,0,.25);border:1px solid var(--line2);color:var(--tx);border-radius:10px;padding:8px 10px;font:inherit;font-size:14px;width:100%;min-width:0}
+input:focus,select:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(111,157,255,.2)}
+select option{background:#151923}
+.cutrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:10px}
+.btn{all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:6px;padding:9px 16px;border-radius:10px;font-weight:700;font-size:14px;background:linear-gradient(135deg,var(--blue),var(--purple));color:#fff;box-shadow:0 4px 18px rgba(111,157,255,.3)}
+.btn.ghost{background:rgba(255,255,255,.06);box-shadow:none;border:1px solid var(--line2);color:var(--tx)}
+.btn:disabled,.btn.dis{opacity:.4;pointer-events:none}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{all:unset;cursor:pointer;font-size:13px;padding:4px 11px;border-radius:999px;border:1px solid var(--line2);color:var(--tx2)}
+.chip.on{color:#fff;border-color:var(--green);background:rgba(72,217,164,.18)}
+.msg{font-size:13px;border-radius:10px;padding:9px 12px;margin:6px 0;border:1px solid;word-break:keep-all}
+.msg.warn{color:#ffd9a8;border-color:rgba(255,184,92,.4);background:rgba(255,184,92,.08)}
+.msg.err{color:#ffc2cb;border-color:rgba(255,107,127,.45);background:rgba(255,107,127,.08)}
+.msg.info{color:#cfe0ff;border-color:rgba(111,157,255,.35);background:rgba(111,157,255,.07)}
+.msg.ok{color:#c3f5e2;border-color:rgba(72,217,164,.4);background:rgba(72,217,164,.07)}
+.muted{color:var(--tx2);font-size:13px}
+details summary{cursor:pointer;color:var(--tx2);font-size:13px}
+/* tabs */
+.tabs{display:flex;gap:6px;margin:6px 0 14px;border-bottom:1px solid var(--line)}
+.tabs button{all:unset;cursor:pointer;padding:10px 16px;font-weight:700;color:var(--tx2);border-bottom:2px solid transparent;margin-bottom:-1px}
+.tabs button.on{color:#fff;border-color:var(--blue);text-shadow:0 0 12px rgba(111,157,255,.6)}
+/* stats */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,140px),1fr));gap:10px}
+.stat{background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:10px 12px;min-width:0}
+.stat .k{font-size:12px;color:var(--tx2)}
+.stat .v{font-size:20px;font-weight:800;letter-spacing:-.01em;word-break:keep-all}
+.stat.wide{grid-column:span 2}
+@media (max-width:480px){.stat.wide{grid-column:1/-1}}
+/* tables */
+.tw{overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:12px;border:1px solid var(--line);max-width:100%}
+.tw.tall{max-height:70vh;overflow-y:auto}
+table{border-collapse:collapse;width:100%;font-size:13.5px}
+th,td{padding:7px 10px;text-align:center;border-bottom:1px solid var(--line);white-space:nowrap}
+th{background:rgba(20,24,34,.95);color:var(--tx2);font-weight:600;font-size:12.5px;position:sticky;top:0;z-index:1}
+tbody tr:hover td{background:rgba(255,255,255,.03)}
+td.l{text-align:left}
+tr.sum td{font-weight:700;background:rgba(255,255,255,.04)}
+tr.div td{background:rgba(111,157,255,.10);color:var(--blue);font-weight:700;font-size:12.5px;letter-spacing:.02em;padding:5px}
+tr.mine td{background:rgba(72,217,164,.07)}
+tr.mine td:first-child{box-shadow:inset 3px 0 0 var(--green)}
+.gr1{color:var(--blue)}.gr2{color:var(--green)}.gr3{color:var(--tx)}.gr4{color:var(--warn)}.gr5{color:var(--red)}
+.anst th{position:static;background:rgba(255,255,255,.05);min-width:56px}
+.anst td{min-width:34px}
+.pill{display:inline-block;min-width:26px;padding:1px 8px;border-radius:999px;font-weight:700;font-size:12.5px;background:rgba(255,255,255,.07)}
+.warncell{color:var(--warn);text-align:left;white-space:normal;min-width:220px;font-size:12.5px}
+.bad{color:var(--red);font-weight:800}
+.filters{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px;align-items:end}
+.filters label.fld{width:auto;flex:1 1 140px}
+/* personal */
+.pgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr));gap:10px;margin:12px 0}
+.posbar{position:relative;height:46px;margin:22px 4px 8px;}
+.posbar .track{position:absolute;left:0;right:0;top:20px;height:6px;border-radius:6px;background:linear-gradient(90deg,rgba(255,107,127,.45),rgba(255,184,92,.45),rgba(72,217,164,.45),rgba(111,157,255,.55))}
+.posbar .mk{position:absolute;top:0;transform:translateX(-50%);font-size:11px;color:var(--tx2);white-space:nowrap;text-align:center}
+.posbar .mk i{display:block;margin:2px auto 0;width:2px;height:22px;background:var(--tx2)}
+.posbar .mk.me{color:#fff;font-weight:800}
+.posbar .mk.me i{width:12px;height:12px;border-radius:50%;background:#fff;margin-top:6px;box-shadow:0 0 10px var(--blue)}
+.posbar .mk.cls{top:30px}.posbar .mk.cls i{margin:0 auto 2px;height:10px}
+.axis{display:flex;justify-content:space-between;font-size:11px;color:var(--tx3);margin:0 4px}
+footer{margin-top:26px;text-align:center;color:var(--tx2);font-size:13px;border-top:1px solid var(--line);padding-top:16px}
+footer b{color:var(--green)}
+.hide{display:none!important}
+#printArea{display:none}
+/* print */
+@media print{
+  @page{size:A4;margin:12mm}
+  html,body{background:#fff!important;color:#000!important;overflow:visible!important}
+  .rep{padding:0 2px}
+  body *{color:#000!important;text-shadow:none!important;box-shadow:none!important}
+  .card,.stat{background:#fff!important;border:1px solid #999!important;backdrop-filter:none!important}
+  th{background:#eee!important;position:static}
+  td,th{border-bottom:1px solid #bbb!important}
+  tr.div td{background:#f1f1f1!important}
+  .tw{max-height:none!important;overflow:visible!important;border:none}
+  .noprint,.tabs,#inputs,footer button,.filters{display:none!important}
+  body.print-personal .wrap{display:none!important}
+  body.print-personal #printArea{display:block!important}
+  .posbar .track{background:none!important;border-top:3px solid #888;height:0}
+  .posbar .mk i{background:none!important;width:0!important;border-left:2px solid #000}
+  .posbar .mk.me i{width:0!important;height:0!important;border:6px solid #000!important;border-radius:50%}
+  #printArea{width:100%}
+}
+/* printArea (A4 report) */
+.rep{font-size:12.5px;color:#000}
+.rep h2{font-size:18px;text-align:center;margin:0 0 4px}
+.rep .sub{text-align:center;font-size:12px;margin-bottom:12px}
+.rep table{font-size:12.5px;margin-bottom:10px;table-layout:fixed;width:100%}
+.rep td,.rep th{padding:5px 6px;border:1px solid #888!important;white-space:normal;word-break:keep-all}
+.rep .foot{font-size:11px;margin-top:10px;text-align:right}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1>성적 산출기<small>나이스 일람표 → 석차 · 등급컷 · 성취도 · 개인 조회</small></h1>
+    <div class="controls noprint">
+      <div class="seg" id="styleSeg" title="학년 스타일">
+        <button data-v="2" class="on">2학년형 (A~E)</button>
+        <button data-v="1">1학년형 (+미도달)</button>
+      </div>
+      <div class="seg" id="examSeg" title="시험 종류">
+        <button data-v="중간고사" class="on">중간고사</button>
+        <button data-v="기말고사">기말고사</button>
+        <button data-v="학기말">학기말</button>
+      </div>
+    </div>
+  </header>
+
+  <section id="inputs" class="noprint">
+    <div class="card">
+      <div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <h2 style="margin:0">1. 파일 올리기</h2>
+        <label class="btn ghost" id="dropRestore" style="position:relative" title="이 웹앱에서 내려받은 성적산출 엑셀을 올리면 화면을 그대로 다시 엽니다">
+          <input type="file" accept=".xlsx" id="fRestore" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%">
+          📂 결과 엑셀 다시 열기
+        </label>
+      </div>
+      <div class="grid g4">
+        <label class="drop" id="dropRoster">
+          <input type="file" accept=".xlsx,.xls,.xlsm" id="fRoster">
+          <div class="t">전체 성적일람표 <span class="tag req">필수</span></div>
+          <div class="d">나이스 → 교과담임 → 정기시험조회/통계 → 정기시험조회 → <b>교과목별일람표조회-전체학급</b></div>
+          <div class="f" id="nRoster"></div>
+        </label>
+        <label class="drop" id="dropCuts">
+          <input type="file" accept=".xlsx,.xls,.xlsm" id="fCuts">
+          <div class="t">분할점수 <span class="tag req">필수</span></div>
+          <div class="d">과목 하나짜리 파일 또는 학교 전체 결과표(추정분할점수 산출 결과). 아래에 직접 입력해도 됩니다.</div>
+          <div class="f" id="nCuts"></div>
+        </label>
+        <label class="drop" id="dropAns">
+          <input type="file" accept=".xlsx,.xls,.xlsm" id="fAns" multiple>
+          <div class="t">정오표 <span class="tag opt">선택 · 여러 개</span></div>
+          <div class="d">같은 화면의 <b>교과목별학생답정오표</b>. 내 수업 반 파일을 한꺼번에 여러 개 올릴 수 있습니다.</div>
+          <div class="f" id="nAns"></div>
+        </label>
+        <label class="drop" id="dropNames">
+          <input type="file" accept=".xlsx,.xls,.xlsm,.csv" id="fNames">
+          <div class="t">학번·이름 명단 <span class="tag opt">선택</span></div>
+          <div class="d">'학번'과 '성명(이름)' 열이 있는 엑셀. 없으면 학번으로만 표시합니다.</div>
+          <div class="f" id="nNames"></div>
+        </label>
+      </div>
+      <div id="loadMsgs"></div>
+    </div>
+
+    <div class="grid g2">
+      <div class="card">
+        <h2>2. 시험 정보</h2>
+        <div class="cutrow">
+          <label class="fld">학년도<input type="number" id="mYear"></label>
+          <label class="fld">학기<input type="number" id="mSem" min="1" max="2"></label>
+          <label class="fld">학년<input type="number" id="mGrade" min="1" max="3"></label>
+          <label class="fld">만점<input type="number" id="mFull" step="any"></label>
+        </div>
+        <div style="margin-top:10px"><label class="fld">과목명<input type="text" id="mSubj" placeholder="일람표에서 자동으로 읽습니다"></label></div>
+        <div style="margin-top:12px">
+          <h3>내 수업 반 <span class="muted" style="font-weight:400">(정렬표에서 강조)</span></h3>
+          <div class="chips" id="myCls"><span class="muted">일람표를 올리면 반 목록이 나타납니다.</span></div>
+        </div>
+      </div>
+      <div class="card">
+        <h2>3. 분할점수</h2>
+        <div id="subjPick" class="hide" style="margin-bottom:10px">
+          <label class="fld">과목 선택 (결과표에서 일치하는 과목을 못 찾았습니다)<select id="subjSel"></select></label>
+        </div>
+        <div class="cutrow">
+          <label class="fld">A/B<input type="number" step="any" id="c0"></label>
+          <label class="fld">B/C<input type="number" step="any" id="c1"></label>
+          <label class="fld">C/D<input type="number" step="any" id="c2"></label>
+          <label class="fld">D/E<input type="number" step="any" id="c3"></label>
+          <label class="fld hide" id="failWrap">미도달 기준<input type="number" step="any" id="c4" placeholder="직접 입력"></label>
+        </div>
+        <p class="muted" style="margin:10px 0 0">경계값은 <b>이상(≥)</b>으로 판정합니다. 파일에서 읽은 값도 여기서 고칠 수 있습니다.</p>
+        <details style="margin-top:12px">
+          <summary>등급 비율·표준편차 설정</summary>
+          <div class="cutrow" style="margin-top:10px">
+            <label class="fld">1등급 누적%<input type="number" step="any" class="pct" value="10"></label>
+            <label class="fld">2등급 누적%<input type="number" step="any" class="pct" value="34"></label>
+            <label class="fld">3등급 누적%<input type="number" step="any" class="pct" value="66"></label>
+            <label class="fld">4등급 누적%<input type="number" step="any" class="pct" value="90"></label>
+          </div>
+          <p class="muted">등급별 누적인원 = 응시자수 × 누적% 를 반올림. 동점자는 중간석차로 판정.</p>
+          <label class="fld" style="max-width:260px">표준편차
+            <select id="sdMode"><option value="pop">모표준편차 (÷N)</option><option value="sample">표본표준편차 (÷(N−1))</option></select>
+          </label>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <div id="bannerArea"></div>
+
+  <section id="results" class="hide">
+    <div class="tabs noprint">
+      <button data-tab="all" class="on">전체 결과</button>
+      <button data-tab="one">개인 조회</button>
+    </div>
+
+    <div id="tabAll">
+      <div class="card">
+        <div style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:10px;align-items:center;margin-bottom:12px">
+          <h2 id="sumTitle" style="margin:0"></h2>
+          <div class="controls noprint">
+            <button class="btn" id="btnXlsx">⬇ 엑셀 내려받기</button>
+            <button class="btn ghost" id="btnPrintAll">🖨 인쇄</button>
+          </div>
+        </div>
+        <div class="stats" id="stats"></div>
+        <div id="calcWarn"></div>
+      </div>
+
+      <div class="grid g2">
+        <div class="card"><h2>등급컷</h2><div class="tw"><table id="tGrade"></table></div><div id="tieNotes"></div></div>
+        <div class="card"><h2>성취도</h2><div class="tw"><table id="tAch"></table></div><div id="failList"></div></div>
+      </div>
+
+      <div class="card"><h2>반별 분포</h2><div class="tw"><table id="tCls"></table></div></div>
+
+      <div class="card">
+        <h2>전체 정렬표</h2>
+        <div class="filters noprint">
+          <label class="fld">반<select id="fCls"><option value="">전체</option></select></label>
+          <label class="fld">학번·이름 검색<input type="text" id="fQ" placeholder="예: 20322"></label>
+        </div>
+        <div class="tw tall"><table id="tSort"></table></div>
+      </div>
+    </div>
+
+    <div id="tabOne" class="hide">
+      <div class="card noprint">
+        <div class="filters" style="margin:0">
+          <label class="fld" style="flex:0 1 130px">반<select id="pCls"><option value="">전체</option></select></label>
+          <label class="fld">학번 입력 또는 선택<input type="text" id="pId" list="pList" placeholder="예: 20322" inputmode="numeric"></label>
+          <datalist id="pList"></datalist>
+          <button class="btn ghost" id="pPrev">◀</button>
+          <button class="btn ghost" id="pNext">▶</button>
+          <button class="btn" id="btnPrintOne">🖨 개인 성적표 인쇄</button>
+        </div>
+        <p class="muted" style="margin:8px 0 0">반을 고르면 ◀ ▶가 그 반 안에서 번호 순으로 움직입니다. 키보드 ← → 로도 넘길 수 있습니다.</p>
+      </div>
+      <div id="pOut"></div>
+    </div>
+  </section>
+
+  <footer>
+    🔒 <b>업로드한 파일은 이 기기 밖으로 나가지 않으며 저장되지 않습니다.</b><br>
+    <span class="muted">모든 계산은 이 브라우저 안에서만 이루어지고, 새로고침하면 데이터가 사라집니다.</span>
+  </footer>
+</div>
+<div id="printArea"></div>
+
+<script>
+"use strict";
+/* ============================================================
+   설정
+   ============================================================ */
+const ACH = ['A','B','C','D','E'];
+
+/* ============================================================
+   공통 유틸
+   ============================================================ */
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const norm = s => String(s ?? '').replace(/\s+/g, '');
+function toNum(v){
+  if (typeof v === 'number' && isFinite(v)) return v;
+  if (typeof v === 'string'){ const t = v.trim(); if (/^-?\d+(\.\d+)?$/.test(t)) return parseFloat(t); }
+  return null;
+}
+const key6 = x => Math.round(x * 1e6) / 1e6;           // 부동소수점 비교용
+const fmtS = x => (x == null || !isFinite(x)) ? '—' : String(Number(x.toFixed(2)));   // 점수 표시
+const fmt2 = x => (x == null || !isFinite(x)) ? '—' : x.toFixed(2);
+const pct1 = (n, N) => N ? (n / N * 100).toFixed(1) : '—';
+
+function readFile(file){
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = e => { try { res(XLSX.read(new Uint8Array(e.target.result), {type:'array'})); } catch(err){ rej(err); } };
+    r.onerror = () => rej(r.error);
+    r.readAsArrayBuffer(file);
+  });
+}
+const sheetRows = ws => XLSX.utils.sheet_to_json(ws, {header:1, raw:true, defval:null, blankrows:true});
+
+/* ============================================================
+   파서 전체 성적일람표
+   ============================================================ */
+function parseMeta(strings){
+  const m = {};
+  for (const s0 of strings){
+    const s = String(s0);
+    let x;
+    if (!m.year && (x = s.match(/(\d{4})\s*학년도/))) m.year = +x[1];
+    if (/학년도/.test(s)){
+      if (!m.sem && (x = s.match(/(\d)\s*학기/))) m.sem = +x[1];
+      if (!m.grade && (x = s.match(/학기[\s\S]*?(\d)\s*학년/))) m.grade = +x[1];
+    }
+    if (/교과목/.test(s)){
+      if ((x = s.match(/고사\s*[:：]\s*([\s\S]*?)\s+교과목/))) m.examRaw = x[1].trim();
+      if ((x = s.match(/교과목\s*[:：]\s*([\s\S]*?)(?:\s{2,}|\s+만점|$)/))){
+        const raw = x[1].trim();
+        m.subjRaw = raw;
+        let sub = raw.replace(/^[^:：]*[:：]/, '');
+        const cr = sub.match(/\(\s*(\d+(?:\.\d+)?)\s*\)\s*$/);
+        if (cr) m.credit = +cr[1];
+        m.subject = sub.replace(/\(\s*\d+(?:\.\d+)?\s*\)\s*$/, '').trim();
+      }
+      if ((x = s.match(/만점\s*[:：]\s*([\d.]+)/))) m.full = parseFloat(x[1]);
+    }
+  }
+  if (m.examRaw){
+    if (/중간/.test(m.examRaw)) m.exam = '중간고사';
+    else if (/기말/.test(m.examRaw)) m.exam = '기말고사';
+  }
+  return m;
+}
+
+function parseRoster(wb){
+  for (const name of wb.SheetNames){
+    const rows = sheetRows(wb.Sheets[name]);
+    let hr = -1, hc = -1;
+    outer: for (let r = 0; r < rows.length; r++){
+      const row = rows[r] || [];
+      for (let c = 0; c < row.length; c++){
+        const v = row[c];
+        if (typeof v === 'string' && v.includes('반') && v.includes('번호')){ hr = r; hc = c; break outer; }
+      }
+    }
+    if (hr < 0) continue;
+
+    // 머리글(표 위쪽 + 시트 전체 문자열 중 학년도/교과목 포함)
+    const strs = [];
+    rows.forEach(row => (row || []).forEach(v => { if (typeof v === 'string' && /(학년도|교과목)/.test(v)) strs.push(v); }));
+    const meta = parseMeta(strs);
+
+    // 반 머리글
+    const head = rows[hr] || [];
+    const classes = [];  // {col, cls}
+    for (let c = hc + 1; c < head.length; c++){
+      const n = toNum(head[c]);
+      if (n == null || !Number.isInteger(n)) break;
+      classes.push({col:c, cls:n});
+    }
+    if (!classes.length) continue;
+
+    const students = [], statuses = [], counts = {}, warnings = [];
+    let ended = false, blank = 0;
+    for (let r = hr + 1; r < rows.length; r++){
+      const row = rows[r] || [];
+      const lab = row[hc];
+      const no = toNum(lab);
+      if (!ended && no != null && Number.isInteger(no)){
+        blank = 0;
+        for (const {col, cls} of classes){
+          const v = row[col];
+          const s = toNum(v);
+          if (s != null) students.push({cls, no, score:s});
+          else if (typeof v === 'string' && v.trim()) statuses.push({cls, no, text:v.trim()});
+        }
+        continue;
+      }
+      if (lab == null || String(lab).trim() === ''){ if (++blank > 5) break; continue; }
+      ended = true;
+      if (norm(lab).includes('응시')){
+        for (const {col, cls} of classes){
+          const t = row[col]; if (t == null) continue;
+          const n = parseInt(String(t).replace(/[^\d]/g, ''), 10);
+          if (!isNaN(n)) counts[cls] = n;
+        }
+      }
+    }
+    return {sheet:name, meta, classes:classes.map(c => c.cls), students, statuses, counts, warnings};
+  }
+  throw new Error("'반 / 번호' 머리글 셀을 찾지 못했습니다. 나이스 교과목별일람표(전체학급) 파일인지 확인해 주세요.");
+}
+
+/* ============================================================
+   파서 ③ 분할점수 (형식 A / 형식 B)
+   ============================================================ */
+function parseCutFile(wb){
+  const labels = ['A/B','B/C','C/D','D/E'];
+  for (const name of wb.SheetNames){
+    const rows = sheetRows(wb.Sheets[name]);
+    for (let r = 0; r < rows.length; r++){
+      const row = rows[r] || [];
+      const cols = labels.map(L => row.findIndex(v => norm(v).toUpperCase() === L));
+      if (cols.some(c => c < 0)) continue;
+      const subjCol = row.findIndex(v => norm(v) === '과목명' || norm(v) === '과목');
+      if (subjCol >= 0){
+        // 형식 B
+        const gradeCol = row.findIndex(v => norm(v) === '학년');
+        const list = [];
+        for (let rr = r + 1; rr < rows.length; rr++){
+          const x = rows[rr] || [];
+          const subj = x[subjCol];
+          if (subj == null || String(subj).trim() === '') continue;
+          const cuts = cols.map(c => toNum(x[c]));
+          if (cuts.some(v => v == null)) continue;
+          list.push({grade: gradeCol >= 0 ? toNum(x[gradeCol]) : null, subject: String(subj).trim(), cuts});
+        }
+        if (list.length) return {type:'B', sheet:name, list};
+      } else {
+        // 형식 A: '평균' 행
+        for (let rr = r + 1; rr < rows.length; rr++){
+          const x = rows[rr] || [];
+          if (x.some(v => norm(v) === '평균')){
+            const cuts = cols.map(c => toNum(x[c]));
+            if (cuts.every(v => v != null)) return {type:'A', sheet:name, cuts};
+          }
+        }
+      }
+    }
+  }
+  throw new Error("'A/B · B/C · C/D · D/E' 머리글을 찾지 못했습니다.");
+}
+
+/* ============================================================
+   파서 ④ 명단
+   ============================================================ */
+function parseNames(wb){
+  const map = new Map();
+  for (const name of wb.SheetNames){
+    const rows = sheetRows(wb.Sheets[name]);
+    for (let r = 0; r < Math.min(rows.length, 30); r++){
+      const row = rows[r] || [];
+      const ic = row.findIndex(v => norm(v) === '학번');
+      const nc = row.findIndex(v => ['성명','이름','학생명'].includes(norm(v)));
+      if (ic < 0 || nc < 0) continue;
+      for (let rr = r + 1; rr < rows.length; rr++){
+        const x = rows[rr] || [];
+        const id = toNum(x[ic]); const nm = x[nc];
+        if (id != null && nm != null && String(nm).trim()) map.set(Math.round(id), String(nm).trim());
+      }
+      if (map.size) return map;
+    }
+  }
+  throw new Error("'학번'과 '성명(또는 이름)' 머리글이 있는 표를 찾지 못했습니다.");
+}
+
+/* ============================================================
+   파서 ② 정오표 (나이스 '정기시험 교과목별 학생답 정오표')
+   ============================================================ */
+// ※ . : 맞음 , 번호 : 틀림 , 알파벳 : 복수답안코드 , - : 무표기
+const MULTI = {A:'1,2',B:'1,3',C:'1,4',D:'1,5',E:'2,3',F:'2,4',G:'2,5',H:'3,4',I:'3,5',J:'4,5',K:'1,2,3',L:'1,2,4',M:'1,2,5',
+  N:'1,3,4',O:'1,3,5',P:'1,4,5',Q:'2,3,4',R:'2,3,5',S:'2,4,5',T:'3,4,5',U:'1,2,3,4',V:'1,2,3,5',W:'1,2,4,5',X:'1,3,4,5',Y:'2,3,4,5',Z:'1,2,3,4,5'};
+const cellStr = v => v == null ? '' : (typeof v === 'number' ? String(Number.isInteger(v) ? v : +v.toFixed(4)) : String(v).trim());
+const decodeAns = v => { const t = cellStr(v).toUpperCase(); return MULTI[t] && t.length === 1 ? MULTI[t] : cellStr(v); };
+
+function parseAnswerSheet(wb){
+  for (const name of wb.SheetNames){
+    const rows = sheetRows(wb.Sheets[name]);
+    let hr = -1;
+    for (let r = 0; r < rows.length && hr < 0; r++) if ((rows[r] || []).some(v => norm(v).includes('반/번호'))) hr = r;
+    if (hr < 0) continue;
+    const head = rows[hr];
+    const labCol = head.findIndex((v, i) => norm(v) === '번호' && !norm(v).includes('/'));
+    if (labCol < 0) continue;
+    const items = [];
+    for (let c = labCol + 1; c < head.length; c++){ const n = toNum(head[c]); if (n != null && Number.isInteger(n)) items.push({col:c, no:n}); }
+    const scoreCol = k => head.findIndex(v => norm(v).includes(k));
+    const sc = {obj:scoreCol('선택형'), sub:scoreCol('서답형'), etc:scoreCol('기타'), total:scoreCol('총점')};
+    if (!items.length || sc.total < 0) continue;
+    const findRow = lab => rows.findIndex((x, i) => i > hr && x && norm(x[labCol]) === lab);
+    const ra = findRow('정답'), rp = findRow('배점');
+    items.forEach(it => { it.ans = ra >= 0 ? cellStr(rows[ra][it.col]) : ''; it.pts = rp >= 0 ? toNum(rows[rp][it.col]) : null; });
+    const max = {};
+    for (const k in sc) max[k] = (rp >= 0 && sc[k] >= 0) ? toNum(rows[rp][sc[k]]) : null;
+
+    // 머리글
+    const meta = {};
+    rows.forEach(row => (row || []).forEach(v => {
+      if (typeof v !== 'string' || !/학년도/.test(v)) return;
+      let x;
+      if ((x = v.match(/(\d{4})\s*학년도/))) meta.year = +x[1];
+      if ((x = v.match(/(\d)\s*학기/))) meta.sem = +x[1];
+      if ((x = v.match(/학기[\s\S]*?(\d)\s*학년/))) meta.grade = +x[1];
+      if ((x = v.match(/(중간|기말)/))) meta.exam = x[1] + '고사';
+      if ((x = v.match(/[가-힣A-Za-z]+[:：]\s*(.+?)\s*$/))) meta.subject = x[1].replace(/\(\s*\d+(?:\.\d+)?\s*\)\s*$/, '').trim();
+    }));
+
+    const recs = [];
+    for (let r = hr + 1; r < rows.length; r++){
+      const row = rows[r] || [];
+      let m = null;
+      for (let c = 0; c < labCol && !m; c++){ const t = cellStr(row[c]).match(/^(\d+)\s*\/\s*(\d+)$/); if (t) m = t; }
+      if (!m) continue;
+      recs.push({cls:+m[1], no:+m[2], name:cellStr(row[labCol]),
+        raw: items.map(it => cellStr(row[it.col])),
+        obj:toNum(row[sc.obj]), sub:toNum(row[sc.sub]), etc:toNum(row[sc.etc]), total:toNum(row[sc.total])});
+    }
+    if (!recs.length) continue;
+    return {meta, items:items.map(({no, ans, pts}) => ({no, ans, pts})), max, recs};
+  }
+  throw new Error("'반/번호'와 문항 '번호' 머리글이 있는 정오표를 찾지 못했습니다.");
+}
+const ansKey = (cls, no) => cls + '-' + no;
+function ansOf(s){ return S.ans?.recs.get(ansKey(s.cls, s.no)) || null; }
+
+/* ============================================================
+   계산 엔진 — 입력: [{id, cls, no, score}] (파서와 분리)
+   ============================================================ */
+function computeAll(list, opt){
+  const N = list.length;
+  const out = {N, opt};
+  if (!N) return out;
+  const scores = list.map(s => s.score);
+  out.mean = scores.reduce((a, b) => a + b, 0) / N;
+  const ss = scores.reduce((a, b) => a + (b - out.mean) ** 2, 0);
+  out.sdPop = Math.sqrt(ss / N);
+  out.sdSample = N > 1 ? Math.sqrt(ss / (N - 1)) : 0;
+  out.sd = opt.sdMode === 'sample' ? out.sdSample : out.sdPop;
+  out.max = Math.max(...scores); out.min = Math.min(...scores);
+
+  // 석차
+  const sorted = list.map(s => ({...s})).sort((a, b) => b.score - a.score || a.id - b.id);
+  let i = 0;
+  while (i < N){
+    let j = i;
+    while (j + 1 < N && key6(sorted[j + 1].score) === key6(sorted[i].score)) j++;
+    const tie = j - i + 1, rank = i + 1, mid = rank + (tie - 1) / 2;
+    for (let k = i; k <= j; k++) Object.assign(sorted[k], {rank, tie, mid});
+    i = j + 1;
+  }
+
+  // 등급 누적인원 (반올림)
+  const pcts = [...opt.pcts, 100];
+  const cumN = pcts.map(p => {
+    const x = N * p / 100;
+    return Math.floor(x + 0.5 + 1e-9);
+  });
+  cumN[4] = N;
+  for (const s of sorted){
+    s.grade = 5;
+    for (let g = 0; g < 5; g++) if (s.mid <= cumN[g] + 1e-9){ s.grade = g + 1; break; }
+  }
+
+  // 성취도
+  const c = opt.cuts;
+  for (const s of sorted){
+    let a = 'E';
+    for (let k = 0; k < 4; k++) if (c[k] != null && s.score >= c[k] - 1e-9){ a = ACH[k]; break; }
+    if (a === 'E' && opt.style === '1' && opt.fail != null && s.score < opt.fail - 1e-9) a = '미도달';
+    s.ach = a;
+  }
+
+  // 등급 표 + 경계 동점 경고
+  const gradeRows = [];
+  let cumActual = 0;
+  for (let g = 1; g <= 5; g++){
+    const inG = sorted.filter(s => s.grade === g);
+    cumActual += inG.length;
+    const row = {g, pct:pcts[g - 1], cumN:cumN[g - 1], count:inG.length, cumActual,
+                 cut: inG.length ? inG[inG.length - 1].score : null, warn:[]};
+    if (g < 5){
+      const b = cumN[g - 1];
+      const grp = sorted.find(s => s.rank <= b && s.rank + s.tie - 1 > b);
+      if (grp){
+        const to = grp.mid <= b ? g : g + 1;
+        row.warn.push(`${fmtS(grp.score)}점 동점 ${grp.tie}명(석차 ${grp.rank}~${grp.rank + grp.tie - 1})이 누적인원 ${b}명 경계에 걸침 → 중간석차 ${grp.mid}로 모두 ${to}등급`);
+      }
+    }
+    if (!inG.length) row.warn.push('이 등급을 받은 학생이 없습니다');
+    gradeRows.push(row);
+  }
+  out.cumN = cumN; out.gradeRows = gradeRows;
+
+  // 성취도 표
+  const achKeys = (opt.style === '1') ? [...ACH, '미도달'] : ACH;
+  out.achRows = achKeys.map((a, k) => ({a, cut: a === '미도달' ? opt.fail : (k < 4 ? c[k] : (opt.style === '1' ? opt.fail : null)),
+                                        count: sorted.filter(s => s.ach === a).length}));
+  out.achSum = out.achRows.reduce((t, r) => t + r.count, 0);
+
+  // 반별
+  const clsMap = new Map();
+  for (const s of sorted){ if (!clsMap.has(s.cls)) clsMap.set(s.cls, []); clsMap.get(s.cls).push(s); }
+  out.byClass = [...clsMap.keys()].sort((a, b) => a - b).map(cls => {
+    const arr = clsMap.get(cls);
+    const g = [1,2,3,4,5].map(x => arr.filter(s => s.grade === x).length);
+    const a = achKeys.map(x => arr.filter(s => s.ach === x).length);
+    return {cls, n:arr.length, mean:arr.reduce((t, s) => t + s.score, 0) / arr.length, g, a};
+  });
+  out.achKeys = achKeys;
+  // 반 내 석차
+  for (const [cls, arr] of clsMap){
+    arr.forEach(s => { s.clsRank = 1 + arr.filter(t => key6(t.score) > key6(s.score)).length; s.clsN = arr.length; });
+  }
+  out.sorted = sorted;
+  out.byId = new Map(sorted.map(s => [s.id, s]));
+  return out;
+}
+
+/* ============================================================
+   상태 & 입력 처리
+   ============================================================ */
+const S = {roster:null, cutFile:null, names:null, ans:null, myCls:new Set(), style:'2', exam:'중간고사', R:null, cur:null};
+
+function setLoadMsg(key, html){
+  S.msgs = S.msgs || {};
+  if (html) S.msgs[key] = html; else delete S.msgs[key];
+  $('#loadMsgs').innerHTML = Object.values(S.msgs).join('');
+}
+
+function bindDrop(id, inputId, handler){
+  const el = $(id), inp = $(inputId);
+  ['dragenter','dragover'].forEach(ev => el.addEventListener(ev, e => { e.preventDefault(); if (!el.classList.contains('disabled')) el.classList.add('over'); }));
+  ['dragleave','drop'].forEach(ev => el.addEventListener(ev, e => { e.preventDefault(); el.classList.remove('over'); }));
+  el.addEventListener('drop', e => { if (!el.classList.contains('disabled') && e.dataTransfer.files.length) handler([...e.dataTransfer.files]); });
+  inp.addEventListener('change', () => { if (inp.files.length) handler([...inp.files]); inp.value = ''; });
+}
+
+bindDrop('#dropRoster', '#fRoster', async files => {
+  const f = files[0];
+  try {
+    const R = parseRoster(await readFile(f));
+    S.roster = R;
+    $('#dropRoster').classList.add('ok');
+    $('#nRoster').textContent = `✓ ${f.name}`;
+    const m = R.meta;
+    const setIf = (sel, v) => { if (v != null && v !== '') $(sel).value = v; };   // 못 읽은 값은 기존 입력 유지
+    setIf('#mYear', m.year); setIf('#mSem', m.sem); setIf('#mGrade', m.grade); setIf('#mFull', m.full); setIf('#mSubj', m.subject);
+    if (m.exam) setSeg('#examSeg', m.exam);
+    // 검증 메시지
+    const w = [];
+    const per = {}; R.students.forEach(s => per[s.cls] = (per[s.cls] || 0) + 1);
+    const bad = R.classes.filter(c => R.counts[c] != null && R.counts[c] !== (per[c] || 0));
+    if (Object.keys(R.counts).length === 0) w.push(`<div class="msg warn">⚠️ '응시생수' 행을 찾지 못해 반별 인원 검증을 건너뛰었습니다.</div>`);
+    else if (bad.length) w.push(`<div class="msg err">⚠️ 응시생수 불일치: ${bad.map(c => `${c}반(읽음 ${per[c] || 0}명 / 응시생수 ${R.counts[c]}명)`).join(', ')}</div>`);
+    if (!m.grade && !$('#mGrade').value) w.push(`<div class="msg warn">⚠️ 머리글에서 학년을 읽지 못했습니다. '시험 정보'에 학년을 입력해야 학번이 만들어집니다.</div>`);
+    if (!m.subject && !$('#mSubj').value) w.push(`<div class="msg warn">⚠️ 머리글에서 과목명을 읽지 못했습니다("XLS data" 형식일 수 있음). 과목명을 직접 입력하세요.</div>`);
+    const st = R.statuses.length ? ` · 글자 셀 제외 ${R.statuses.length}명(${summarizeStatus(R.statuses)})` : '';
+    setLoadMsg('roster', `<div class="msg ok">일람표: ${R.classes.length}개 반 · 응시 ${R.students.length}명${st}${bad.length ? '' : (Object.keys(R.counts).length ? ' · 반별 응시생수 일치 ✓' : '')}</div>` + w.join(''));
+    renderMyCls();
+    matchCutSubject();
+    recompute();
+  } catch(err){ console.error(err); S.roster = null; $('#dropRoster').classList.remove('ok'); $('#nRoster').textContent = ''; setLoadMsg('roster', `<div class="msg err">일람표 읽기 실패: ${esc(err.message)}</div>`); recompute(); }
+});
+
+bindDrop('#dropCuts', '#fCuts', async files => {
+  const f = files[0];
+  try {
+    const C = parseCutFile(await readFile(f));
+    S.cutFile = C;
+    $('#dropCuts').classList.add('ok');
+    $('#nCuts').textContent = `✓ ${f.name} (${C.type === 'A' ? '과목 파일' : '학교 전체 결과표 ' + C.list.length + '과목'})`;
+    if (C.type === 'A'){ fillCuts(C.cuts); $('#subjPick').classList.add('hide'); setLoadMsg('cuts', `<div class="msg ok">분할점수: '평균' 행 ${C.cuts.join(' / ')}</div>`); }
+    else matchCutSubject();
+    recompute();
+  } catch(err){ console.error(err); setLoadMsg('cuts', `<div class="msg err">분할점수 읽기 실패: ${esc(err.message)}</div>`); }
+});
+
+bindDrop('#dropNames', '#fNames', async files => {
+  const f = files[0];
+  try {
+    S.names = parseNames(await readFile(f));
+    $('#dropNames').classList.add('ok');
+    $('#nNames').textContent = `✓ ${f.name} (${S.names.size}명)`;
+    setLoadMsg('names', '');
+    recompute();
+  } catch(err){ console.error(err); setLoadMsg('names', `<div class="msg err">명단 읽기 실패: ${esc(err.message)}</div>`); }
+});
+
+bindDrop('#dropAns', '#fAns', async files => {
+  const msgs = [];
+  let added = 0;
+  for (const f of files){
+    try {
+      const A = parseAnswerSheet(await readFile(f));
+      if (!S.ans) S.ans = {items:A.items, max:A.max, meta:A.meta, recs:new Map(), files:[]};
+      else {
+        const same = S.ans.items.length === A.items.length && S.ans.items.every((it, i) => it.no === A.items[i].no && it.ans === A.items[i].ans && it.pts === A.items[i].pts);
+        if (!same){ msgs.push(`<div class="msg err">⚠️ ${esc(f.name)}: 문항 수·정답·배점이 먼저 올린 정오표와 달라 건너뛰었습니다. (다른 과목·고사 파일인지 확인)</div>`); continue; }
+      }
+      A.recs.forEach(r => { S.ans.recs.set(ansKey(r.cls, r.no), r); S.myCls.add(r.cls); });
+      const cl = [...new Set(A.recs.map(r => r.cls))];
+      S.ans.files.push(f.name); added++;
+      msgs.push(`<div class="msg ok">정오표 ${esc(f.name)}: ${cl.join(', ')}반 ${A.recs.length}명 · ${A.items.length}문항</div>`);
+    } catch(err){ console.error(err); msgs.push(`<div class="msg err">정오표 ${esc(f.name)} 읽기 실패: ${esc(err.message)}</div>`); }
+  }
+  if (S.ans){
+    $('#dropAns').classList.add('ok');
+    const cls = [...new Set([...S.ans.recs.values()].map(r => r.cls))].sort((a, b) => a - b);
+    $('#nAns').textContent = `✓ ${S.ans.files.length}개 파일 · ${cls.join(', ')}반 · ${S.ans.recs.size}명`;
+    const m = S.ans.meta, mg = toNum($('#mGrade').value), ms = $('#mSubj').value;
+    if (S.roster && ((m.grade && mg && m.grade !== mg) || (m.subject && ms && norm(m.subject) !== norm(ms))))
+      msgs.push(`<div class="msg err">⚠️ 정오표(${m.grade || '?'}학년 ${esc(m.subject || '?')})와 일람표(${mg || '?'}학년 ${esc(ms || '?')})의 학년·과목이 다릅니다.</div>`);
+  }
+  setLoadMsg('ans', msgs.join(''));
+  renderMyCls();
+  recompute();
+});
+
+function summarizeStatus(st){
+  const c = {}; st.forEach(s => c[s.text] = (c[s.text] || 0) + 1);
+  return Object.entries(c).map(([k, v]) => `${k} ${v}`).join(', ');
+}
+function fillCuts(cuts){ cuts.forEach((v, i) => $('#c' + i).value = v); }
+
+function matchCutSubject(){
+  const C = S.cutFile; if (!C || C.type !== 'B') return;
+  const subj = norm($('#mSubj').value), gr = toNum($('#mGrade').value);
+  let hit = C.list.find(x => norm(x.subject) === subj && (x.grade == null || gr == null || x.grade === gr));
+  const sel = $('#subjSel');
+  sel.innerHTML = `<option value="">— 과목을 고르세요 —</option>` + C.list.map((x, i) => `<option value="${i}">${x.grade ? x.grade + '학년 ' : ''}${esc(x.subject)}</option>`).join('');
+  if (hit && subj){
+    fillCuts(hit.cuts);
+    $('#subjPick').classList.add('hide');
+    setLoadMsg('cuts', `<div class="msg ok">분할점수: 결과표에서 '${esc(hit.grade ? hit.grade + '학년 ' : '')}${esc(hit.subject)}' 행을 자동 선택 → ${hit.cuts.join(' / ')}</div>`);
+  } else {
+    $('#subjPick').classList.remove('hide');
+    setLoadMsg('cuts', `<div class="msg warn">⚠️ 결과표(${C.list.length}과목)에서 ${subj ? `'${esc($('#mSubj').value)}'와 일치하는 과목을` : '과목을'} 찾지 못했습니다. 아래에서 직접 고르세요.</div>`);
+  }
+}
+$('#subjSel').addEventListener('change', e => {
+  const x = S.cutFile?.list[+e.target.value]; if (!x) return;
+  fillCuts(x.cuts);
+  setLoadMsg('cuts', `<div class="msg ok">분할점수: '${esc(x.subject)}' 선택 → ${x.cuts.join(' / ')}</div>`);
+  recompute();
+});
+
+function setSeg(sel, v){ $$(sel + ' button').forEach(b => b.classList.toggle('on', b.dataset.v === v)); if (sel === '#examSeg') S.exam = v; else S.style = v; }
+$$('#styleSeg button').forEach(b => b.onclick = () => { setSeg('#styleSeg', b.dataset.v); $('#failWrap').classList.toggle('hide', S.style !== '1'); recompute(); });
+$$('#examSeg button').forEach(b => b.onclick = () => { setSeg('#examSeg', b.dataset.v); recompute(); });
+
+['#c0','#c1','#c2','#c3','#c4','#mYear','#mSem','#mGrade','#mFull','#sdMode'].forEach(s => $(s).addEventListener('input', recompute));
+$('#mSubj').addEventListener('change', () => { matchCutSubject(); recompute(); });
+$('#mSubj').addEventListener('input', () => renderTitle());
+$$('.pct').forEach(e => e.addEventListener('input', recompute));
+
+function renderMyCls(){
+  const box = $('#myCls');
+  if (!S.roster){ box.innerHTML = '<span class="muted">일람표를 올리면 반 목록이 나타납니다.</span>'; return; }
+  box.innerHTML = S.roster.classes.map(c => `<button class="chip ${S.myCls.has(c) ? 'on' : ''}" data-c="${c}">${c}반</button>`).join('');
+  $$('#myCls .chip').forEach(b => b.onclick = () => {
+    const c = +b.dataset.c; S.myCls.has(c) ? S.myCls.delete(c) : S.myCls.add(c);
+    b.classList.toggle('on'); renderSorted(); if (S.cur) renderPerson(S.cur);
+  });
+}
+
+/* ============================================================
+   재계산 & 렌더
+   ============================================================ */
+function getOpt(){
+  const cuts = [0,1,2,3].map(i => toNum($('#c' + i).value));
+  return {
+    cuts, fail: toNum($('#c4').value), style: S.style,
+    pcts: $$('.pct').map(e => toNum(e.value)),
+    sdMode: $('#sdMode').value
+  };
+}
+function nm(id){
+  const v = S.names?.get(id); if (v) return v;
+  if (S.ans){ const r = S.ans.recs.get(ansKey(Math.floor(id / 100) % 100, id % 100)); if (r?.name) return r.name; }
+  return '';
+}
+const hasNames = () => !!(S.names || S.ans);
+
+function recompute(){
+  const banner = [];
+  const opt = getOpt();
+  const ok = !!S.roster;
+  if (S.exam === '학기말'){
+    banner.push(`<div class="card msg info" style="margin:0 0 16px">📌 <b>학기말</b> 성적(지필+수행 합산) 파일 형식은 아직 확인하지 못했습니다. 나이스 학기말 성적 파일 샘플을 받으면 이 모드를 추가합니다. 지금은 중간고사·기말고사만 계산합니다.</div>`);
+  }
+  if (ok && S.exam !== '학기말'){
+    if (opt.cuts.some(v => v == null)) banner.push(`<div class="card msg warn" style="margin:0 0 16px">⚠️ 분할점수 4개를 모두 넣어야 성취도가 계산됩니다. (등급·석차는 계산됨)</div>`);
+    else if (!(opt.cuts[0] > opt.cuts[1] && opt.cuts[1] > opt.cuts[2] && opt.cuts[2] > opt.cuts[3])) banner.push(`<div class="card msg err" style="margin:0 0 16px">⚠️ 분할점수가 A/B &gt; B/C &gt; C/D &gt; D/E 순서가 아닙니다. 값을 확인하세요.</div>`);
+    if (S.style === '1' && opt.fail == null) banner.push(`<div class="card msg warn" style="margin:0 0 16px">⚠️ 1학년형: <b>미도달 기준점수</b>를 입력해야 미도달 학생을 분리합니다.</div>`);
+    if (S.style === '1' && opt.fail != null && opt.cuts[3] != null && opt.fail > opt.cuts[3]) banner.push(`<div class="card msg err" style="margin:0 0 16px">⚠️ 미도달 기준점수가 D/E 분할점수보다 큽니다.</div>`);
+    const p = opt.pcts;
+    if (p.some(v => v == null) || !(p[0] < p[1] && p[1] < p[2] && p[2] < p[3] && p[3] < 100)) banner.push(`<div class="card msg err" style="margin:0 0 16px">⚠️ 등급 누적비율 설정이 올바르지 않습니다.</div>`);
+  }
+  $('#bannerArea').innerHTML = banner.join('');
+
+  if (!ok || S.exam === '학기말' || opt.pcts.some(v => v == null)){ $('#results').classList.add('hide'); S.R = null; return; }
+
+  const grade = toNum($('#mGrade').value) || 0;
+  const list = S.roster.students.map(s => ({id: grade * 10000 + s.cls * 100 + s.no, cls:s.cls, no:s.no, score:s.score}));
+  if (opt.cuts.some(v => v == null)) opt.cuts = opt.cuts.map(() => null);
+  S.R = computeAll(list, opt);
+  S.R.hasAch = !opt.cuts.some(v => v == null);
+  $('#results').classList.remove('hide');
+  renderAll();
+}
+
+function examLabel(){ return S.exam; }
+function subjName(){ return $('#mSubj').value.trim() || '과목'; }
+function renderTitle(){
+  const g = $('#mGrade').value, y = $('#mYear').value, sm = $('#mSem').value;
+  $('#sumTitle').innerHTML = `${esc(subjName())} <span class="muted" style="font-weight:500">· ${y ? y + '학년도 ' : ''}${sm ? sm + '학기 ' : ''}${g ? g + '학년 ' : ''}${examLabel()}</span>`;
+}
+
+function renderAll(){
+  const R = S.R;
+  renderTitle();
+  const full = toNum($('#mFull').value);
+  $('#stats').innerHTML = [
+    ['응시자수', R.N + '명'], ['평균', fmt2(R.mean)],
+    [`표준편차 <span class="muted">(${R.opt.sdMode === 'sample' ? '표본' : '모'})</span>`, fmt2(R.sd)],
+    ['최고점', fmtS(R.max)], ['최저점', fmtS(R.min)],
+    ['만점 · 학점', `${full != null ? fmtS(full) : '—'}${S.roster.meta.credit ? ' · ' + S.roster.meta.credit + '학점' : ''}`]
+  ].map(([k, v]) => `<div class="stat"><div class="k">${k}</div><div class="v">${v}</div></div>`).join('');
+
+  const cw = [];
+  if (full != null){ const over = R.sorted.filter(s => s.score > full + 1e-9 || s.score < 0); if (over.length) cw.push(`<div class="msg err">⚠️ 만점(${fmtS(full)}) 범위를 벗어난 점수: ${over.map(s => s.id).join(', ')}</div>`); }
+  if (S.roster.statuses.length) cw.push(`<div class="msg info">계산에서 제외한 글자 셀: ${S.roster.statuses.map(s => `${(toNum($('#mGrade').value) || 0) * 10000 + s.cls * 100 + s.no}(${esc(s.text)})`).join(', ')}</div>`);
+  if (S.ans){
+    const bad = [], missing = [];
+    for (const r of S.ans.recs.values()){
+      const s = R.sorted.find(x => x.cls === r.cls && x.no === r.no);
+      if (!s){ if (r.total != null) missing.push(`${r.cls}/${r.no}`); continue; }
+      if (r.total == null || key6(r.total) !== key6(s.score)) bad.push(`${s.id}${r.name ? ' ' + esc(r.name) : ''}(정오표 ${fmtS(r.total)} / 일람표 ${fmtS(s.score)})`);
+    }
+    cw.push(bad.length ? `<div class="msg err">⚠️ 정오표 총점과 일람표 점수가 다른 학생 ${bad.length}명: ${bad.join(', ')}</div>`
+                       : `<div class="msg ok">정오표 ${S.ans.recs.size}명 총점이 일람표 점수와 모두 일치 ✓</div>`);
+    if (missing.length) cw.push(`<div class="msg warn">⚠️ 정오표에는 있으나 일람표에 점수가 없는 학생(반/번호): ${missing.join(', ')}</div>`);
+  }
+  $('#calcWarn').innerHTML = cw.join('');
+
+  // 등급컷 표
+  $('#tGrade').innerHTML = `<thead><tr><th>등급</th><th>누적비율</th><th>누적인원</th><th>실제 인원</th><th>실제 누적</th><th>컷 점수</th><th>경계 확인</th></tr></thead><tbody>` +
+    R.gradeRows.map(r => `<tr><td><span class="pill gr${r.g}">${r.g}등급</span></td><td>${r.pct}%</td><td>${r.cumN}</td><td>${r.count}</td><td>${r.cumActual}</td>
+      <td><b>${r.g < 5 ? fmtS(r.cut) : '—'}</b></td><td class="warncell">${r.warn.length ? '⚠️ ' + r.warn.map(esc).join('<br>⚠️ ') : '<span class="muted">—</span>'}</td></tr>`).join('') +
+    `<tr class="sum"><td>합계</td><td></td><td>${R.N}</td><td>${R.gradeRows.reduce((t, r) => t + r.count, 0)}</td><td></td><td></td><td></td></tr></tbody>`;
+  $('#tieNotes').innerHTML = `<p class="muted" style="margin:8px 0 0">컷 점수 = 해당 등급을 받은 학생 중 최저 점수. 동점자는 중간석차(석차+(동석차수−1)/2)가 누적인원 이하이면 그 등급.</p>`;
+
+  // 성취도 표
+  if (R.hasAch){
+    const ok = R.achSum === R.N;
+    $('#tAch').innerHTML = `<thead><tr><th>성취도</th><th>분할점수</th><th>인원</th><th>비율(%)</th></tr></thead><tbody>` +
+      R.achRows.map(r => `<tr><td><b>${r.a}</b></td><td>${r.a === 'E' && S.style !== '1' ? '—' : (r.cut != null ? fmtS(r.cut) + ' 이상' : (r.a === '미도달' ? '미입력' : '—'))}${r.a === '미도달' && r.cut != null ? ' 미만' : ''}</td><td>${r.count}</td><td>${pct1(r.count, R.N)}</td></tr>`).join('')
+        .replace(/(\d+(?:\.\d+)?) 이상 미만/, '$1 미만') +
+      `<tr class="sum"><td>합계</td><td></td><td>${ok ? R.achSum : `<span class="bad">오류 (${R.achSum}≠${R.N})</span>`}</td><td>${ok ? '100.0' : '<span class="bad">오류</span>'}</td></tr></tbody>`;
+    if (S.style === '1' && R.opt.fail != null){
+      const fl = R.sorted.filter(s => s.ach === '미도달');
+      $('#failList').innerHTML = `<h3 style="margin-top:14px">미도달 학생 명단 (${fl.length}명, ${pct1(fl.length, R.N)}%)</h3>` +
+        (fl.length ? `<div class="tw"><table><thead><tr><th>학번</th>${hasNames() ? '<th>성명</th>' : ''}<th>점수</th><th>석차</th></tr></thead><tbody>${fl.map(s => `<tr><td>${s.id}</td>${hasNames() ? `<td>${esc(nm(s.id))}</td>` : ''}<td>${fmtS(s.score)}</td><td>${s.rank}(${s.tie})/${R.N}</td></tr>`).join('')}</tbody></table></div>` : '<p class="muted">없음</p>');
+    } else $('#failList').innerHTML = '';
+  } else {
+    $('#tAch').innerHTML = `<tbody><tr><td class="muted" style="padding:18px">분할점수를 넣으면 성취도가 계산됩니다.</td></tr></tbody>`;
+    $('#failList').innerHTML = '';
+  }
+
+  // 반별
+  const ak = R.achKeys;
+  $('#tCls').innerHTML = `<thead><tr><th>반</th><th>응시</th><th>평균</th>${[1,2,3,4,5].map(g => `<th>${g}등급</th>`).join('')}${R.hasAch ? ak.map(a => `<th>${a}</th>`).join('') : ''}</tr></thead><tbody>` +
+    R.byClass.map(c => `<tr class="${S.myCls.has(c.cls) ? 'mine' : ''}"><td><b>${c.cls}반</b></td><td>${c.n}</td><td>${fmt2(c.mean)}</td>${c.g.map(x => `<td>${x}</td>`).join('')}${R.hasAch ? c.a.map(x => `<td>${x}</td>`).join('') : ''}</tr>`).join('') +
+    `<tr class="sum"><td>전체</td><td>${R.N}</td><td>${fmt2(R.mean)}</td>${R.gradeRows.map(r => `<td>${r.count}</td>`).join('')}${R.hasAch ? R.achRows.map(r => `<td>${r.count}</td>`).join('') : ''}</tr></tbody>`;
+
+  // 필터 옵션
+  const fc = $('#fCls'), cur = fc.value;
+  fc.innerHTML = `<option value="">전체</option>` + R.byClass.map(c => `<option value="${c.cls}">${c.cls}반</option>`).join('');
+  fc.value = cur;
+  renderSorted();
+
+  const pc = $('#pCls'), pcv = pc.value;
+  pc.innerHTML = `<option value="">전체</option>` + R.byClass.map(c => `<option value="${c.cls}">${c.cls}반</option>`).join('');
+  pc.value = pcv;
+  // 개인 조회 목록
+  $('#pList').innerHTML = [...R.sorted].sort((a, b) => a.id - b.id).map(s => `<option value="${s.id}">${esc(nm(s.id))}</option>`).join('');
+  if (S.cur && R.byId.has(S.cur)) renderPerson(S.cur); else { S.cur = null; $('#pOut').innerHTML = `<div class="card muted">학번을 입력하거나 목록에서 고르세요.</div>`; }
+}
+
+function renderSorted(){
+  const R = S.R; if (!R) return;
+  const fcls = $('#fCls').value, q = $('#fQ').value.trim();
+  const showName = hasNames();
+  const filtering = !!(fcls || q);
+  let html = `<thead><tr><th>학번</th>${showName ? '<th>성명</th>' : ''}<th>반</th><th>점수</th><th>석차</th><th>등급</th>${R.hasAch ? '<th>성취도</th>' : ''}</tr></thead><tbody>`;
+  const cols = 5 + (showName ? 1 : 0) + (R.hasAch ? 1 : 0);
+  const rows = R.sorted;
+  for (let i = 0; i < rows.length; i++){
+    const s = rows[i];
+    const pass = (!fcls || s.cls === +fcls) && (!q || String(s.id).includes(q) || nm(s.id).includes(q));
+    if (pass) html += `<tr class="${S.myCls.has(s.cls) ? 'mine' : ''}"><td>${s.id}</td>${showName ? `<td>${esc(nm(s.id))}</td>` : ''}<td>${s.cls}</td><td>${fmtS(s.score)}</td><td>${s.rank}${s.tie > 1 ? `(${s.tie})` : ''}/${R.N}</td><td><span class="pill gr${s.grade}">${s.grade}</span></td>${R.hasAch ? `<td>${s.ach}</td>` : ''}</tr>`;
+    const nx = rows[i + 1];
+    if (nx && nx.grade !== s.grade && !filtering) html += `<tr class="div"><td colspan="${cols}">── ${s.grade}등급 컷 ${fmtS(s.score)} ──</td></tr>`;
+  }
+  $('#tSort').innerHTML = html + '</tbody>';
+}
+$('#fCls').addEventListener('change', renderSorted);
+$('#fQ').addEventListener('input', renderSorted);
+
+/* ---------- 탭 ---------- */
+$$('.tabs button').forEach(b => b.onclick = () => {
+  $$('.tabs button').forEach(x => x.classList.toggle('on', x === b));
+  $('#tabAll').classList.toggle('hide', b.dataset.tab !== 'all');
+  $('#tabOne').classList.toggle('hide', b.dataset.tab !== 'one');
+});
+
+/* ---------- 개인 조회 ---------- */
+function personHTML(s, forPrint){
+  const R = S.R;
+  const clsInfo = R.byClass.find(c => c.cls === s.cls);
+  const dG = s.score - R.mean, dC = s.score - clsInfo.mean;
+  const sign = x => (x >= 0 ? '+' : '') + x.toFixed(2);
+  const full = toNum($('#mFull').value) || 100;
+  const pos = x => Math.max(0, Math.min(100, x / full * 100));
+  const name = nm(s.id);
+  const head = `${$('#mYear').value ? $('#mYear').value + '학년도 ' : ''}${$('#mSem').value ? $('#mSem').value + '학기 ' : ''}${examLabel()}`;
+  const rows = [
+    ['학번', s.id], ['성명', name || '—'], ['반 · 번호', `${s.cls}반 ${s.no}번`],
+    ['총점', fmtS(s.score)], ['석차(동석차)/응시자', `${s.rank}(${s.tie})/${R.N}`], ['등급', s.grade + '등급'],
+    ['성취도', R.hasAch ? s.ach : '—'], ['반 석차', `${s.clsRank}/${s.clsN}`],
+    ['학년 평균 대비', `${fmt2(R.mean)} (${sign(dG)})`], ['반 평균 대비', `${fmt2(clsInfo.mean)} (${sign(dC)})`]
+  ];
+  if (forPrint){
+    return `<div class="rep"><h2>${esc(subjName())} 개인 성적표</h2><div class="sub">${esc(head)}</div>
+      <table><tbody>${rows.map(([k, v], i) => i % 2 === 0 ? `<tr><th>${k}</th><td>${esc(v)}</td>` : `<th>${k}</th><td>${esc(v)}</td></tr>`).join('')}</tbody></table>
+      <table><thead><tr><th>구분</th><th>평균</th><th>표준편차</th><th>최고점</th><th>최저점</th><th>응시자수</th></tr></thead>
+      <tbody><tr><th>학년</th><td>${fmt2(R.mean)}</td><td>${fmt2(R.sd)}</td><td>${fmtS(R.max)}</td><td>${fmtS(R.min)}</td><td>${R.N}</td></tr>
+      <tr><th>${s.cls}반</th><td>${fmt2(clsInfo.mean)}</td><td>—</td><td>—</td><td>—</td><td>${clsInfo.n}</td></tr></tbody></table>
+      ${posBar(s, R, clsInfo, pos, full)}
+      ${answerHTML(s, true)}
+      <div class="foot">출력일 ${new Date().toLocaleDateString('ko-KR')}</div></div>`;
+  }
+  return `<div class="card">
+    <h2>${esc(name ? name + ' · ' : '')}${s.id}</h2>
+    <div class="pgrid">${rows.map(([k, v]) => `<div class="stat"><div class="k">${k}</div><div class="v" style="font-size:18px">${esc(v)}</div></div>`).join('')}</div>
+    <h3>점수 위치</h3>${posBar(s, R, clsInfo, pos, full)}
+  </div>
+  <div class="card"><h2>문항별 정오표</h2>${answerHTML(s, false)}</div>`;
+}
+function answerHTML(s, forPrint){
+  const r = ansOf(s);
+  if (!r) return forPrint ? `<p style="font-size:12px;margin-top:14px">문항별 정오표: 정오표 미업로드</p>`
+    : `<div class="msg info">정오표 미업로드 — ${S.myCls.has(s.cls) ? '이 반 정오표를 올리면 문항별 정오가 표시됩니다.' : '정오표를 올리지 않은 반이라 총점·석차·등급·성취도만 표시합니다.'}</div>`;
+  const items = S.ans.items, mx = S.ans.max;
+  const ok = r.raw.map(v => v === '.');
+  const nOk = ok.filter(Boolean).length;
+  const stu = (v, it) => v === '.' ? decodeAns(it.ans) : v === '-' ? '무표기' : v === '' ? '—' : decodeAns(v);
+  const mark = (v) => v === '.' ? '<b style="color:var(--green)">O</b>' : '<b style="color:var(--red)">X</b>';
+  const per = forPrint ? 10 : 10;
+  let blocks = '';
+  for (let i = 0; i < items.length; i += per){
+    const sl = items.slice(i, i + per), rv = r.raw.slice(i, i + per);
+    blocks += `<div class="tw" style="margin-bottom:8px"><table class="anst"><tbody>
+      <tr><th>문항</th>${sl.map(it => `<th>${it.no}</th>`).join('')}</tr>
+      <tr><th>배점</th>${sl.map(it => `<td>${it.pts != null ? fmtS(it.pts) : ''}</td>`).join('')}</tr>
+      <tr><th>정답</th>${sl.map(it => `<td>${esc(decodeAns(it.ans))}</td>`).join('')}</tr>
+      <tr><th>학생 답</th>${sl.map((it, k) => `<td>${esc(stu(rv[k], it))}</td>`).join('')}</tr>
+      <tr><th>정오</th>${sl.map((it, k) => `<td>${mark(rv[k])}</td>`).join('')}</tr>
+    </tbody></table></div>`;
+  }
+  const mism = r.total == null || key6(r.total) !== key6(s.score);
+  const sc = [['선택형', r.obj, mx.obj], ['서답형', r.sub, mx.sub], ...((r.etc || mx.etc) ? [['기타', r.etc, mx.etc]] : []), ['총점', r.total, mx.total]];
+  const summary = forPrint
+    ? `<table><tbody><tr>${sc.map(([k]) => `<th>${k}</th>`).join('')}<th>선택형 정답 수</th></tr><tr>${sc.map(([, v, m]) => `<td>${fmtS(v)}${m != null ? ' / ' + fmtS(m) : ''}</td>`).join('')}<td>${nOk} / ${items.length}</td></tr></tbody></table>`
+    : `<div class="pgrid">${sc.map(([k, v, m]) => `<div class="stat"><div class="k">${k}</div><div class="v" style="font-size:18px">${fmtS(v)}<span class="muted" style="font-size:13px">${m != null ? ' / ' + fmtS(m) : ''}</span></div></div>`).join('')}
+       <div class="stat"><div class="k">선택형 정답 수</div><div class="v" style="font-size:18px">${nOk}<span class="muted" style="font-size:13px"> / ${items.length}</span></div></div></div>`;
+  return (forPrint ? '<h3 style="margin:14px 0 6px;color:#000">문항별 정오표</h3>' : '') + summary +
+    (mism ? `<div class="msg err">⚠️ 정오표 총점(${fmtS(r.total)})이 일람표 점수(${fmtS(s.score)})와 다릅니다.</div>` : '') + blocks +
+    (forPrint ? '' : `<p class="muted" style="margin:4px 0 0">학생 답: 맞으면 정답 번호, 틀리면 고른 번호, '무표기'는 답 미표기. 복수 표기는 '1,3'처럼 표시.</p>`);
+}
+function posBar(s, R, c, pos, full){
+  return `<div class="posbar"><div class="track"></div>
+    <div class="mk" style="left:${pos(R.mean)}%">학년평균 ${fmt2(R.mean)}<i></i></div>
+    <div class="mk cls" style="left:${pos(c.mean)}%"><i></i>${c.cls}반평균 ${fmt2(c.mean)}</div>
+    <div class="mk me" style="left:${pos(s.score)}%;top:-18px">${fmtS(s.score)}<i></i></div>
+  </div><div class="axis"><span>0</span><span>${fmtS(full)}</span></div>`;
+}
+function renderPerson(id){
+  const s = S.R?.byId.get(id);
+  if (!s){ $('#pOut').innerHTML = `<div class="card msg warn">학번 ${esc(id)} 학생을 찾지 못했습니다. (미응시·휴학이거나 학번이 틀렸을 수 있습니다)</div>`; return; }
+  S.cur = id;
+  const pc = toNum($('#pCls').value); if (pc != null && pc !== s.cls) $('#pCls').value = s.cls;
+  $('#pOut').innerHTML = personHTML(s, false);
+}
+$('#pId').addEventListener('input', e => { const v = toNum(e.target.value.trim()); if (v != null && String(v).length >= 5) renderPerson(v); });
+$('#pId').addEventListener('change', e => { const v = toNum(e.target.value.trim()); if (v != null) renderPerson(v); });
+function personIds(){
+  const c = toNum($('#pCls').value);
+  return S.R.sorted.filter(s => c == null || s.cls === c).sort((a, b) => a.id - b.id).map(s => s.id);
+}
+function showPerson(id){ $('#pId').value = id; renderPerson(id); }
+function stepPerson(d){
+  if (!S.R) return;
+  const ids = personIds(); if (!ids.length) return;
+  let i = ids.indexOf(S.cur);
+  i = i < 0 ? (d > 0 ? 0 : ids.length - 1) : Math.max(0, Math.min(ids.length - 1, i + d));
+  showPerson(ids[i]);
+}
+$('#pCls').addEventListener('change', () => {
+  if (!S.R) return;
+  const ids = personIds();
+  if (ids.length && !ids.includes(S.cur)) showPerson(ids[0]);
+});
+document.addEventListener('keydown', e => {
+  if ($('#tabOne').classList.contains('hide') || !S.R) return;
+  const t = e.target, tag = (t.tagName || '').toLowerCase();
+  if ((tag === 'input' && t.id !== 'pId') || tag === 'textarea' || tag === 'select') return;
+  if (e.key === 'ArrowLeft' || e.key === 'ArrowRight'){
+    if (t.id === 'pId') t.blur();
+    e.preventDefault(); stepPerson(e.key === 'ArrowLeft' ? -1 : 1);
+  }
+});
+$('#pPrev').onclick = () => stepPerson(-1);
+$('#pNext').onclick = () => stepPerson(1);
+$('#btnPrintOne').onclick = () => {
+  if (!S.cur) return alert('먼저 학생을 고르세요.');
+  $('#printArea').innerHTML = personHTML(S.R.byId.get(S.cur), true);
+  document.body.classList.add('print-personal');
+  window.print();
+};
+window.addEventListener('afterprint', () => document.body.classList.remove('print-personal'));
+$('#btnPrintAll').onclick = () => { document.body.classList.remove('print-personal'); window.print(); };
+
+/* ---------- 엑셀 내려받기 ---------- */
+$('#btnXlsx').onclick = () => {
+  const R = S.R; if (!R) return;
+  const showName = hasNames();
+  const wb = XLSX.utils.book_new();
+  const sh1 = [['학번', ...(showName ? ['성명'] : []), '반', '번호', '점수', '석차', '동석차수', '석차표기', '등급', ...(R.hasAch ? ['성취도'] : [])]];
+  R.sorted.forEach(s => sh1.push([s.id, ...(showName ? [nm(s.id)] : []), s.cls, s.no, s.score, s.rank, s.tie, `${s.rank}(${s.tie})/${R.N}`, s.grade, ...(R.hasAch ? [s.ach] : [])]));
+  const sh2 = [['등급', '누적비율(%)', '누적인원', '실제 인원', '실제 누적', '컷 점수', '경계 확인']];
+  R.gradeRows.forEach(r => sh2.push([r.g + '등급', r.pct, r.cumN, r.count, r.cumActual, r.g < 5 ? r.cut : '', r.warn.join(' / ')]));
+  sh2.push([], ['응시자수', R.N], ['평균', +R.mean.toFixed(2)], [`표준편차(${R.opt.sdMode === 'sample' ? '표본' : '모'})`, +R.sd.toFixed(2)], ['최고점', R.max], ['최저점', R.min]);
+  const sh3 = [['성취도', '분할점수', '인원', '비율(%)']];
+  if (R.hasAch){
+    R.achRows.forEach(r => sh3.push([r.a, r.cut ?? '', r.count, +pct1(r.count, R.N)]));
+    sh3.push(['합계', '', R.achSum === R.N ? R.achSum : '오류', R.achSum === R.N ? 100 : '오류']);
+  } else sh3.push(['분할점수 미입력']);
+  const ak = R.achKeys;
+  const sh4 = [['반', '응시', '평균', '1등급', '2등급', '3등급', '4등급', '5등급', ...(R.hasAch ? ak : [])]];
+  R.byClass.forEach(c => sh4.push([c.cls, c.n, +c.mean.toFixed(2), ...c.g, ...(R.hasAch ? c.a : [])]));
+  const add = (aoa, name, w) => { const ws = XLSX.utils.aoa_to_sheet(aoa); ws['!cols'] = w.map(x => ({wch:x})); XLSX.utils.book_append_sheet(wb, ws, name); };
+  add(sh1, '정렬표', [9, ...(showName ? [9] : []), 5, 5, 7, 6, 8, 12, 6, 7]);
+  add(sh2, '등급컷', [12, 11, 9, 9, 9, 9, 60]);
+  add(sh3, '성취도', [9, 10, 7, 8]);
+  add(sh4, '반별', [5, 6, 8, 7, 7, 7, 7, 7, 5, 5, 5, 5, 5, 7]);
+  // ---- 다시 열기용 시트 (정오표 · 문항정보 · 설정) ----
+  if (S.ans){
+    const g = toNum($('#mGrade').value) || 0;
+    const it = S.ans.items;
+    const sh5 = [['학번', '성명', '반', '번호', ...it.map(x => '문항' + x.no), '선택형', '서답형', '기타', '총점']];
+    [...S.ans.recs.values()].sort((a, b) => a.cls - b.cls || a.no - b.no)
+      .forEach(r => sh5.push([g * 10000 + r.cls * 100 + r.no, r.name, r.cls, r.no, ...r.raw, r.obj, r.sub, r.etc, r.total]));
+    add(sh5, '정오표', [9, 8, 4, 5, ...it.map(() => 6), 7, 7, 5, 7]);
+    const sh6 = [['문항', '정답', '배점']];
+    it.forEach(x => sh6.push([x.no, x.ans, x.pts]));
+    sh6.push([], ['만점', '선택형', S.ans.max.obj], ['', '서답형', S.ans.max.sub], ['', '기타', S.ans.max.etc], ['', '총점', S.ans.max.total]);
+    add(sh6, '문항정보', [6, 8, 8]);
+  }
+  const o = R.opt, m = S.roster.meta;
+  const sh7 = [['항목', '값'], ['앱', '성적산출기'], ['학년도', $('#mYear').value], ['학기', $('#mSem').value], ['학년', $('#mGrade').value],
+    ['과목명', $('#mSubj').value], ['학점', m.credit ?? ''], ['만점', $('#mFull').value], ['고사', S.exam], ['학년형', S.style],
+    ['A/B', $('#c0').value], ['B/C', $('#c1').value], ['C/D', $('#c2').value], ['D/E', $('#c3').value], ['미도달', $('#c4').value],
+    ['누적비율', JSON.stringify(o.pcts)], ['표준편차', o.sdMode], ['내수업반', JSON.stringify([...S.myCls].sort((a, b) => a - b))],
+    ['제외', JSON.stringify(S.roster.statuses)], ['정오표파일', JSON.stringify(S.ans?.files || [])]];
+  add(sh7, '설정', [12, 40]);
+  const y = $('#mYear').value || '', sm = $('#mSem').value;
+  const fname = `${y ? y + '-' : ''}${sm ? sm + '학기-' : ''}${examLabel()}-${norm(subjName())}-성적산출.xlsx`;
+  const blob = new Blob([XLSX.write(wb, {bookType:'xlsx', type:'array'})], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = fname;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+};
+
+/* ---------- 결과 엑셀 다시 열기 ---------- */
+function rowsByHeader(ws){
+  const rows = sheetRows(ws).filter(r => r && r.some(v => v != null && v !== ''));
+  const h = (rows.shift() || []).map(v => norm(v));
+  return {h, rows, col: k => h.indexOf(k)};
+}
+function restoreFrom(wb){
+  if (!wb.Sheets['설정'] || !wb.Sheets['정렬표']) throw new Error("이 웹앱에서 내려받은 결과 엑셀이 아닙니다('설정'·'정렬표' 시트 없음). 처음 산출할 때는 나이스 일람표를 올려 주세요.");
+  const cfg = {};
+  sheetRows(wb.Sheets['설정']).forEach(r => { if (r && r[0] != null) cfg[norm(r[0])] = r[1] == null ? '' : r[1]; });
+  const J = (k, d) => { try { return JSON.parse(cfg[k]); } catch(e){ return d; } };
+  const T = rowsByHeader(wb.Sheets['정렬표']);
+  const ci = {id:T.col('학번'), nm:T.col('성명'), cls:T.col('반'), no:T.col('번호'), sc:T.col('점수')};
+  if (ci.cls < 0 || ci.no < 0 || ci.sc < 0) throw new Error("'정렬표' 시트에서 반·번호·점수 열을 찾지 못했습니다.");
+  const students = [], names = new Map();
+  T.rows.forEach(r => {
+    const cls = toNum(r[ci.cls]), no = toNum(r[ci.no]), sc = toNum(r[ci.sc]);
+    if (cls == null || no == null || sc == null) return;
+    students.push({cls, no, score:sc});
+    if (ci.nm >= 0 && ci.id >= 0 && r[ci.nm]) names.set(toNum(r[ci.id]), String(r[ci.nm]));
+  });
+  const meta = {year:toNum(cfg['학년도']), sem:toNum(cfg['학기']), grade:toNum(cfg['학년']), full:toNum(cfg['만점']),
+                subject:String(cfg['과목명'] || ''), credit:toNum(cfg['학점']), exam:cfg['고사']};
+  S.roster = {meta, classes:[...new Set(students.map(s => s.cls))].sort((a, b) => a - b), students, statuses:J('제외', []), counts:{}, restored:true};
+  S.names = names.size ? names : null;
+  // 정오표
+  S.ans = null;
+  if (wb.Sheets['정오표'] && wb.Sheets['문항정보']){
+    const I = sheetRows(wb.Sheets['문항정보']);
+    const items = [], max = {};
+    I.slice(1).forEach(r => {
+      if (!r) return;
+      if (toNum(r[0]) != null) items.push({no:toNum(r[0]), ans:cellStr(r[1]), pts:toNum(r[2])});
+      const k = {'선택형':'obj', '서답형':'sub', '기타':'etc', '총점':'total'}[norm(r[1])];
+      if (k && toNum(r[0]) == null) max[k] = toNum(r[2]);
+    });
+    const A = rowsByHeader(wb.Sheets['정오표']);
+    const a0 = A.col('문항' + items[0]?.no);
+    const recs = new Map();
+    A.rows.forEach(r => {
+      const cls = toNum(r[A.col('반')]), no = toNum(r[A.col('번호')]);
+      if (cls == null || no == null) return;
+      recs.set(ansKey(cls, no), {cls, no, name:cellStr(r[A.col('성명')]), raw:items.map((_, k) => cellStr(r[a0 + k])),
+        obj:toNum(r[A.col('선택형')]), sub:toNum(r[A.col('서답형')]), etc:toNum(r[A.col('기타')]), total:toNum(r[A.col('총점')])});
+    });
+    if (items.length && recs.size) S.ans = {items, max, meta:{grade:meta.grade, subject:meta.subject}, recs, files:J('정오표파일', [])};
+  }
+  // 화면 값 채우기
+  const set = (sel, v) => { $(sel).value = v ?? ''; };
+  set('#mYear', meta.year); set('#mSem', meta.sem); set('#mGrade', meta.grade); set('#mFull', meta.full); set('#mSubj', meta.subject);
+  ['A/B','B/C','C/D','D/E','미도달'].forEach((k, i) => set('#c' + i, cfg[k] === '' ? '' : cfg[k]));
+  const pc = J('누적비율', null); if (Array.isArray(pc)) $$('.pct').forEach((e, i) => e.value = pc[i]);
+  $('#sdMode').value = cfg['표준편차'] === 'sample' ? 'sample' : 'pop';
+  setSeg('#styleSeg', String(cfg['학년형'] || '2')); $('#failWrap').classList.toggle('hide', S.style !== '1');
+  if (['중간고사','기말고사','학기말'].includes(cfg['고사'])) setSeg('#examSeg', cfg['고사']);
+  S.myCls = new Set(J('내수업반', []));
+  S.cutFile = null; $('#subjPick').classList.add('hide');
+  return students.length;
+}
+bindDrop('#dropRestore', '#fRestore', async files => {
+  const f = files[0];
+  try {
+    const n = restoreFrom(await readFile(f));
+    ['#dropRoster', '#dropCuts'].forEach(s => $(s).classList.add('ok'));
+    $('#nRoster').textContent = `✓ 결과 파일에서 복원 (${f.name})`;
+    $('#nCuts').textContent = '✓ 결과 파일에서 복원';
+    $('#dropAns').classList.toggle('ok', !!S.ans);
+    $('#nAns').textContent = S.ans ? `✓ 복원 · ${S.ans.recs.size}명` : '';
+    $('#dropNames').classList.remove('ok'); $('#nNames').textContent = '';
+    S.msgs = {};
+    setLoadMsg('roster', `<div class="msg ok">📂 결과 엑셀에서 다시 열었습니다: 응시 ${n}명${S.ans ? ` · 정오표 ${S.ans.recs.size}명` : ''}. 석차·등급·성취도는 저장된 점수로 다시 계산했습니다.</div>`);
+    renderMyCls();
+    recompute();
+  } catch(err){ console.error(err); setLoadMsg('restore', `<div class="msg err">다시 열기 실패: ${esc(err.message)}</div>`); }
+});
+
+if (typeof XLSX === 'undefined') document.getElementById('bannerArea').innerHTML = '<div class="card msg err">엑셀 라이브러리(SheetJS)를 불러오지 못했습니다. 인터넷 연결을 확인하고 새로고침하세요.</div>';
+</script>
+</body>
+</html>
