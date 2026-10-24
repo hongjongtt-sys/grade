@@ -779,13 +779,13 @@ bindDrop('#dropRoster', '#fRoster', async files => {
   const f = files[0];
   try {
     const R = parseRoster(await readFile(f));
+    switchExam(R.meta.exam || (S.exam === '학기말' ? '중간고사' : S.exam));   // 머리글의 고사 종류 칸으로 자동 이동
     S.roster = R;
     $('#dropRoster').classList.add('ok');
     $('#nRoster').textContent = `✓ ${f.name}`;
     const m = R.meta;
     const setIf = (sel, v) => { if (v != null && v !== '') $(sel).value = v; };   // 못 읽은 값은 기존 입력 유지
     setIf('#mYear', m.year); setIf('#mSem', m.sem); setIf('#mGrade', m.grade); setIf('#mFull', m.full); setIf('#mSubj', m.subject);
-    if (m.exam) setSeg('#examSeg', m.exam);
     // 검증 메시지
     const w = [];
     const per = {}; R.students.forEach(s => per[s.cls] = (per[s.cls] || 0) + 1);
@@ -834,6 +834,7 @@ bindDrop('#dropAns', '#fAns', async files => {
   for (const f of files){
     try {
       const A = parseAnswerSheet(await readFile(f));
+      switchExam(A.meta.exam || (S.exam === "학기말" ? "중간고사" : null));
       if (!S.ans) S.ans = {items:A.items, max:A.max, meta:A.meta, recs:new Map(), files:[]};
       else {
         const same = S.ans.items.length === A.items.length && S.ans.items.every((it, i) => it.no === A.items[i].no && it.ans === A.items[i].ans && it.pts === A.items[i].pts);
@@ -888,7 +889,60 @@ $('#subjSel').addEventListener('change', e => {
 
 function setSeg(sel, v){ $$(sel + ' button').forEach(b => b.classList.toggle('on', b.dataset.v === v)); if (sel === '#examSeg') S.exam = v; else S.style = v; }
 $$('#styleSeg button').forEach(b => b.onclick = () => { setSeg('#styleSeg', b.dataset.v); $('#failWrap').classList.toggle('hide', S.style !== '1'); recompute(); });
-$$('#examSeg button').forEach(b => b.onclick = () => { setSeg('#examSeg', b.dataset.v); recompute(); });
+/* ---------- 시험별 칸(중간고사 / 기말고사 / 학기말)을 따로 보관 ---------- */
+S.slots = {};
+const SLOT_UI = ['#dropRoster', '#dropCuts', '#dropAns', '#dropNames'];
+const SLOT_TXT = ['#nRoster', '#nCuts', '#nAns', '#nNames'];
+const SLOT_VAL = ['#c0', '#c1', '#c2', '#c3', '#c4', '#mYear', '#mSem', '#mGrade', '#mFull', '#mSubj'];
+function saveSlot(ex){
+  const o = S.slots[ex] = S.slots[ex] || {};
+  o.msgs = {...(S.msgs || {})};
+  if (ex === '학기말') return;
+  Object.assign(o, {roster:S.roster, cutFile:S.cutFile, names:S.names, ans:S.ans, myCls:new Set(S.myCls), cur:S.cur,
+    vals:SLOT_VAL.map(q => $(q).value), ok:SLOT_UI.map(q => $(q).classList.contains('ok')), txt:SLOT_TXT.map(q => $(q).textContent),
+    subjPick:!$('#subjPick').classList.contains('hide'), subjSel:$('#subjSel').innerHTML});
+}
+function loadSlot(ex, from){
+  const o = S.slots[ex];
+  S.msgs = {...(o?.msgs || {})};
+  $('#loadMsgs').innerHTML = Object.values(S.msgs).join('');
+  if (ex === '학기말') return;
+  if (o && o.vals){
+    Object.assign(S, {roster:o.roster, cutFile:o.cutFile, names:o.names, ans:o.ans, myCls:new Set(o.myCls), cur:o.cur});
+    SLOT_VAL.forEach((q, i) => $(q).value = o.vals[i]);
+    SLOT_UI.forEach((q, i) => $(q).classList.toggle('ok', o.ok[i]));
+    SLOT_TXT.forEach((q, i) => $(q).textContent = o.txt[i]);
+    $('#subjSel').innerHTML = o.subjSel; $('#subjPick').classList.toggle('hide', !o.subjPick);
+  } else {
+    // 빈 칸: 시험 정보(학년도·학기·학년·과목·만점)와 내 수업 반은 이어받고, 성적·분할점수·정오표는 비움
+    const keep = from && from.vals ? from : null;
+    Object.assign(S, {roster:null, cutFile:null, ans:null, names:keep ? keep.names : null, cur:null, myCls:new Set(keep ? keep.myCls : [])});
+    ['#c0', '#c1', '#c2', '#c3', '#c4'].forEach(q => $(q).value = '');
+    if (!keep) ['#mYear', '#mSem', '#mGrade', '#mFull', '#mSubj'].forEach(q => $(q).value = '');
+    ['#dropRoster', '#dropCuts', '#dropAns'].forEach(q => $(q).classList.remove('ok'));
+    ['#nRoster', '#nCuts', '#nAns'].forEach(q => $(q).textContent = '');
+    $('#subjPick').classList.add('hide');
+    if (!keep){ $('#dropNames').classList.remove('ok'); $('#nNames').textContent = ''; }
+  }
+  renderMyCls();
+}
+function switchExam(target){
+  if (!target || target === S.exam) return false;
+  const prev = S.exam;
+  saveSlot(prev);
+  setSeg('#examSeg', target);
+  loadSlot(target, prev !== '학기말' ? S.slots[prev] : (S.slots['중간고사'] || S.slots['기말고사']));
+  if (V.mode) closeViewer();
+  return true;
+}
+function updateSegDots(){
+  $$('#examSeg button').forEach(b => {
+    const ex = b.dataset.v;
+    const has = ex === '학기말' ? !!S.sem : (ex === S.exam ? !!S.roster : !!S.slots[ex]?.roster);
+    b.textContent = ex + (has ? ' ●' : '');
+  });
+}
+$$('#examSeg button').forEach(b => b.onclick = () => { switchExam(b.dataset.v); recompute(); });
 
 ['#c0','#c1','#c2','#c3','#c4','#mYear','#mSem','#mGrade','#mFull','#sdMode'].forEach(s => $(s).addEventListener('input', recompute));
 $('#mSubj').addEventListener('change', () => { matchCutSubject(); recompute(); });
@@ -928,6 +982,7 @@ function recompute(){
   const opt = getOpt();
   const ok = !!S.roster;
   applyMode();
+  updateSegDots();
   if (S.exam === '학기말'){ $('#bannerArea').innerHTML = ''; $('#results').classList.add('hide'); S.R = null; renderSem(); return; }
   $('#semResults').classList.add('hide');
   if (ok && S.exam !== '학기말'){
@@ -1314,6 +1369,7 @@ const semKey = (cls, no) => cls + '-' + no;
 function semId(r){ return (S.sem?.meta.grade || 0) * 10000 + r.cls * 100 + r.no; }
 
 bindDrop('#dropSem', '#fSem', async files => {
+  switchExam('학기말');
   const msgs = [];
   for (const f of files){
     try {
@@ -1489,9 +1545,9 @@ function restoreSem(wb, cfg){
       sum:toNum(r[k('합계')]), raw:toNum(r[k('원점수')]), ach:cellStr(r[k('성취도')]), grade:toNum(r[k('석차등급')]),
       rank:toNum(r[k('석차')]), tie:toNum(r[k('동석차수')]), n:toNum(r[k('수강자수')])});
   });
+  switchExam('학기말');
   S.sem = {...data, recs};
   S.semCur = null;
-  setSeg('#examSeg', '학기말');
   $('#dropSem').classList.add('ok');
   $('#nSem').textContent = `✓ 결과 파일에서 복원 · ${recs.size}명`;
   return recs.size;
@@ -1598,6 +1654,7 @@ function restoreFrom(wb){
   const cfg = {};
   sheetRows(wb.Sheets['설정']).forEach(r => { if (r && r[0] != null) cfg[norm(r[0])] = r[1] == null ? '' : r[1]; });
   const J = (k, d) => { try { return JSON.parse(cfg[k]); } catch(e){ return d; } };
+  switchExam(['중간고사','기말고사'].includes(cfg['고사']) ? cfg['고사'] : (S.exam === '학기말' ? '중간고사' : S.exam));
   const T = rowsByHeader(wb.Sheets['정렬표']);
   const ci = {id:T.col('학번'), nm:T.col('성명'), cls:T.col('반'), no:T.col('번호'), sc:T.col('점수')};
   if (ci.cls < 0 || ci.no < 0 || ci.sc < 0) throw new Error("'정렬표' 시트에서 반·번호·점수 열을 찾지 못했습니다.");
@@ -1641,7 +1698,6 @@ function restoreFrom(wb){
   const pc = J('누적비율', null); if (Array.isArray(pc)) $$('.pct').forEach((e, i) => e.value = pc[i]);
   $('#sdMode').value = cfg['표준편차'] === 'sample' ? 'sample' : 'pop';
   setSeg('#styleSeg', String(cfg['학년형'] || '2')); $('#failWrap').classList.toggle('hide', S.style !== '1');
-  if (['중간고사','기말고사','학기말'].includes(cfg['고사'])) setSeg('#examSeg', cfg['고사']);
   S.myCls = new Set(J('내수업반', []));
   S.cutFile = null; $('#subjPick').classList.add('hide');
   return students.length;
@@ -1715,9 +1771,10 @@ document.addEventListener('drop', async e => {
   // 결과 엑셀은 화면 전체를 바꾸므로 먼저, 그다음 일람표 → 분할점수 → 정오표 → 명단 순서
   for (const k of ['restore', 'sem', 'roster', 'cuts', 'ans', 'names']){
     if (!groups[k]) continue;
-    if (k === 'sem' && S.exam !== '학기말') setSeg('#examSeg', '학기말');
-    if ((k === 'roster' || k === 'ans' || k === 'cuts') && S.exam === '학기말') setSeg('#examSeg', '중간고사');
-    await DROP[KIND[k][0]](k === 'restore' || k === 'roster' || k === 'cuts' || k === 'names' ? groups[k].slice(0, 1) : groups[k]);
+    if (k === 'sem') switchExam('학기말');
+    if ((k === 'cuts' || k === 'names') && S.exam === '학기말') switchExam('중간고사');
+    if (k === 'restore' || k === 'roster'){ for (const f of groups[k]) await DROP[KIND[k][0]]([f]); continue; }   // 중간·기말 파일을 함께 놓아도 각자 칸으로
+    await DROP[KIND[k][0]](k === 'cuts' || k === 'names' ? groups[k].slice(0, 1) : groups[k]);
   }
   if (unknown.length) setLoadMsg('unknown', `<div class="msg warn">⚠️ 어떤 파일인지 알아보지 못했습니다: ${unknown.map(esc).join(', ')} — 해당 칸에 직접 넣어 주세요.</div>`);
   else setLoadMsg('unknown', '');
