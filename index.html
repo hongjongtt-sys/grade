@@ -116,6 +116,10 @@ footer{margin-top:26px;text-align:center;color:var(--tx2);font-size:13px;border-
 footer b{color:var(--green)}
 .hide{display:none!important}
 #printArea{display:none}
+#dropOverlay{position:fixed;inset:0;z-index:200;display:none;align-items:center;justify-content:center;background:rgba(11,13,18,.78);backdrop-filter:blur(6px);pointer-events:none}
+#dropOverlay.on{display:flex}
+#dropOverlay div{border:2px dashed var(--blue);border-radius:20px;padding:40px 48px;text-align:center;font-size:22px;font-weight:800;color:#fff;background:rgba(111,157,255,.10);text-shadow:0 0 18px rgba(111,157,255,.6)}
+#dropOverlay small{display:block;margin-top:10px;font-size:14px;font-weight:500;color:var(--tx2);text-shadow:none}
 /* 학생 확인 화면 */
 #viewer{position:fixed;inset:0;z-index:100;background:var(--bg);overflow:auto;display:none}
 #viewer.on{display:block}
@@ -193,7 +197,8 @@ body.viewing{overflow:hidden}
   <section id="inputs" class="noprint">
     <div class="card">
       <div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:space-between;align-items:center;margin-bottom:12px">
-        <h2 style="margin:0">1. 파일 올리기</h2>
+        <div><h2 style="margin:0">1. 파일 올리기</h2>
+          <div class="muted" style="margin-top:4px">💡 어떤 파일이든 <b>화면 아무 곳에 끌어다 놓으면</b> 종류를 알아서 구분합니다 (결과 엑셀 포함, 여러 개 한꺼번에 가능)</div></div>
         <label class="btn ghost" id="dropRestore" style="position:relative" title="이 웹앱에서 내려받은 성적산출 엑셀을 올리면 화면을 그대로 다시 엽니다">
           <input type="file" accept=".xlsx" id="fRestore" style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%">
           📂 결과 엑셀 다시 열기
@@ -402,6 +407,7 @@ body.viewing{overflow:hidden}
   </div>
   <div class="vbody" id="vOut"></div>
 </div>
+<div id="dropOverlay" class="noprint"><div>📥 여기에 놓으면 파일 종류를 알아서 구분해 엽니다<small>일람표 · 분할점수 · 정오표 · 학기말 성적일람표 · 명단 · 결과 엑셀</small></div></div>
 <div id="printArea"></div>
 
 <script>
@@ -758,10 +764,13 @@ function setLoadMsg(key, html){
   $('#loadMsgs').innerHTML = Object.values(S.msgs).join('');
 }
 
+const DROP = {};
 function bindDrop(id, inputId, handler){
+  DROP[id] = handler;
   const el = $(id), inp = $(inputId);
   ['dragenter','dragover'].forEach(ev => el.addEventListener(ev, e => { e.preventDefault(); if (!el.classList.contains('disabled')) el.classList.add('over'); }));
   ['dragleave','drop'].forEach(ev => el.addEventListener(ev, e => { e.preventDefault(); el.classList.remove('over'); }));
+  el.addEventListener('drop', e => { e.stopPropagation(); dragDepth = 0; $('#dropOverlay').classList.remove('on'); });   // 칸에 직접 놓은 파일은 화면 전체 처리로 넘기지 않음
   el.addEventListener('drop', e => { if (!el.classList.contains('disabled') && e.dataTransfer.files.length) handler([...e.dataTransfer.files]); });
   inp.addEventListener('change', () => { if (inp.files.length) handler([...inp.files]); inp.value = ''; });
 }
@@ -1658,6 +1667,61 @@ bindDrop('#dropRestore', '#fRestore', async files => {
     renderMyCls();
     recompute();
   } catch(err){ console.error(err); setLoadMsg('restore', `<div class="msg err">다시 열기 실패: ${esc(err.message)}</div>`); }
+});
+
+/* ---------- 화면 아무 곳에 끌어다 놓기: 파일 종류 자동 구분 ---------- */
+function detectKind(wb){
+  if (wb.Sheets['설정'] && (wb.Sheets['정렬표'] || wb.Sheets['학기말성적'])) return 'restore';
+  const has = {};
+  for (const name of wb.SheetNames){
+    const rows = sheetRows(wb.Sheets[name]).slice(0, 80);
+    rows.forEach(r => (r || []).forEach(v => {
+      if (v == null) return;
+      const t = norm(v);
+      if (t.includes('평가방법')) has.sem = true;
+      if (t.includes('반/번호')) has.slash = true;
+      if (t === '정답') has.answer = true;
+      if (typeof v === 'string' && v.includes('반') && v.includes('번호')) has.head = true;
+      if (t.toUpperCase() === 'A/B') has.cut = true;
+      if (t === '과목명') has.subj = true;
+      if (t === '학번') has.id = true;
+      if (['성명','이름','학생명'].includes(t)) has.name = true;
+    }));
+  }
+  if (has.sem) return 'sem';
+  if (has.cut && has.subj) return 'cuts';   // 학교 전체 분할점수 결과표(데이터 시트가 함께 있어도)
+  if (has.slash && has.answer) return 'ans';
+  if (has.head) return 'roster';
+  if (has.cut) return 'cuts';
+  if (has.id && has.name) return 'names';
+  return null;
+}
+const KIND = {restore:['#dropRestore', '결과 엑셀'], sem:['#dropSem', '학기말 성적일람표'], ans:['#dropAns', '정오표'],
+              roster:['#dropRoster', '전체 성적일람표'], cuts:['#dropCuts', '분할점수'], names:['#dropNames', '명단']};
+let dragDepth = 0;
+document.addEventListener('dragenter', e => { if ([...(e.dataTransfer?.types || [])].includes('Files')){ dragDepth++; $('#dropOverlay').classList.add('on'); } });
+document.addEventListener('dragleave', () => { if (--dragDepth <= 0){ dragDepth = 0; $('#dropOverlay').classList.remove('on'); } });
+document.addEventListener('dragover', e => e.preventDefault());
+document.addEventListener('drop', async e => {
+  e.preventDefault(); dragDepth = 0; $('#dropOverlay').classList.remove('on');
+  const files = [...(e.dataTransfer?.files || [])].filter(f => /\.(xlsx|xlsm|xls|csv)$/i.test(f.name));
+  if (!files.length) return;
+  if (V.mode) closeViewer();
+  const groups = {}, unknown = [];
+  for (const f of files){
+    try { const k = detectKind(await readFile(f)); k ? (groups[k] = groups[k] || []).push(f) : unknown.push(f.name); }
+    catch(err){ unknown.push(f.name); }
+  }
+  // 결과 엑셀은 화면 전체를 바꾸므로 먼저, 그다음 일람표 → 분할점수 → 정오표 → 명단 순서
+  for (const k of ['restore', 'sem', 'roster', 'cuts', 'ans', 'names']){
+    if (!groups[k]) continue;
+    if (k === 'sem' && S.exam !== '학기말') setSeg('#examSeg', '학기말');
+    if ((k === 'roster' || k === 'ans' || k === 'cuts') && S.exam === '학기말') setSeg('#examSeg', '중간고사');
+    await DROP[KIND[k][0]](k === 'restore' || k === 'roster' || k === 'cuts' || k === 'names' ? groups[k].slice(0, 1) : groups[k]);
+  }
+  if (unknown.length) setLoadMsg('unknown', `<div class="msg warn">⚠️ 어떤 파일인지 알아보지 못했습니다: ${unknown.map(esc).join(', ')} — 해당 칸에 직접 넣어 주세요.</div>`);
+  else setLoadMsg('unknown', '');
+  window.scrollTo({top: 0, behavior: 'smooth'});
 });
 
 if (typeof XLSX === 'undefined') document.getElementById('bannerArea').innerHTML = '<div class="card msg err">엑셀 라이브러리(SheetJS)를 불러오지 못했습니다. 인터넷 연결을 확인하고 새로고침하세요.</div>';
